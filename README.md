@@ -16,9 +16,47 @@ enterprise data — shipment tracking, warehouse inventory, lane pricing, carrie
 exceptions. Instead of one stateful, session-heavy server, Helios runs a **fleet of stateless MCP
 tool servers**, and a separate **agent** app talks to them:
 
-```
-browser SPA ─▶ Agent app ─▶ MCP client ─▶ Load balancer ─▶ 5 stateless MCP servers ─▶ shared Postgres
-              (this UI)     (McpClient)     (nginx / K8s Svc)   (identical replicas)
+```mermaid
+%%{init: {'look':'handDrawn','theme':'neutral','themeVariables': {'lineColor':'#4A4035'}}}%%
+flowchart LR
+    UI([Browser SPA])
+    AGENT([Agent app<br/>MCP client])
+    LB([Load balancer<br/>nginx / K8s Svc])
+    DB[(Shared Postgres)]
+
+    UI --> AGENT
+    AGENT -- McpClient --> LB
+
+    subgraph fleet["5 stateless MCP servers — identical replicas"]
+        S1([mcp-server 1])
+        S2([mcp-server 2])
+        S3([mcp-server 3])
+        S4([mcp-server 4])
+        S5([mcp-server 5])
+    end
+
+    LB --> S1
+    LB --> S2
+    LB --> S3
+    LB --> S4
+    LB --> S5
+
+    S1 --> DB
+    S2 --> DB
+    S3 --> DB
+    S4 --> DB
+    S5 --> DB
+
+    style UI fill:#D4E6F1,stroke:#2E6B8A
+    style AGENT fill:#E8DCC4,stroke:#6B5B45
+    style LB fill:#E8E0F0,stroke:#6B5B8A
+    style DB fill:#F5E6D3,stroke:#A9814B
+    style S1 fill:#D8F0D8,stroke:#3D7A3D
+    style S2 fill:#D8F0D8,stroke:#3D7A3D
+    style S3 fill:#D8F0D8,stroke:#3D7A3D
+    style S4 fill:#D8F0D8,stroke:#3D7A3D
+    style S5 fill:#D8F0D8,stroke:#3D7A3D
+    style fleet fill:#F5F5F0,stroke:#8B8070
 ```
 
 The two tiers have clean responsibilities:
