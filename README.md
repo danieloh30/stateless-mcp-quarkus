@@ -23,8 +23,9 @@ return a structured record. Because no state is carried between calls:
 - ⚡ **Instant, dense, cheap** — Quarkus starts in milliseconds with a tiny heap, so you can pack many
   specialized tool servers per node (and go GraalVM native / AOT for even more).
 
-The console UI makes statelessness visible: every response is stamped with the **instance** that
-served it, and a **“Run 5×”** button fires independent requests to show there is no session in play.
+The console UI makes statelessness visible: a header badge polls the `getServerInstance` MCP tool
+to show which replica is serving right now, and a **“Run 5×”** button fires independent MCP calls —
+in the cluster you watch the serving instance rotate while the result never changes.
 
 ---
 
@@ -53,8 +54,11 @@ served it, and a **“Run 5×”** button fires independent requests to show the
 
 The replicas hold **zero** in-JVM state; all data lives in a shared PostgreSQL. That is what lets
 requests round-robin freely across replicas — any instance serves any request, and the fleet can
-scale to zero when idle. Everything an agent needs is exposed as `@Tool` methods over MCP; the
-same stateless service is reused by a thin REST facade so the browser console can drive the demo.
+scale to zero when idle. Everything is exposed as `@Tool` methods over MCP, and the browser console
+is itself a **pure MCP client** — it calls `tools/list` and `tools/call` straight against `/mcp`,
+the same protocol an AI agent uses. The server runs in **stateless mode**
+(`quarkus.mcp.server.http.streamable.auto-init=true`): no `initialize` handshake or session is
+required, so each request is independent and load-balances across replicas.
 
 ---
 
@@ -118,6 +122,36 @@ java -jar target/quarkus-app/quarkus-run.jar
 mvn clean package -Dnative
 ```
 
+## Deploy to OpenShift / Kubernetes (native + scale-to-zero)
+
+This is where the talk's thesis pays off: a stateless server is just a cloud-native microservice,
+so it deploys, scales, and scales-to-zero like any other. The `quarkus-openshift` extension
+generates the manifests (Deployment, Service, Route, S2I BuildConfig, health probes) at build time.
+
+```bash
+oc login ... && oc new-project helios
+
+# Build a NATIVE image and deploy it, plus a shared PostgreSQL:
+./deploy-openshift.sh            # or: ./deploy-openshift.sh jvm  (faster build)
+
+# Scale the stateless fleet up/down at will — no session affinity to worry about:
+oc scale deploy/stateless-mcp-quarkus --replicas=5
+```
+
+The datasource comes from the `helios-db` Secret (no secrets in the image); liveness/readiness
+probes are wired from `quarkus-smallrye-health`. Generated manifests land in `target/kubernetes/`.
+
+**Scale to zero with Knative** (OpenShift Serverless) — the ultimate stateless payoff. A native
+image cold-starts in tens of milliseconds, so running zero replicas when idle is practical:
+
+```bash
+oc apply -f k8s/postgres.yaml
+oc apply -f k8s/knative-service.yaml    # minScale: 0 — no traffic, no pods, no cost
+```
+
+> The demo flow for the talk: **dev (Dev Services) → local cluster (`./start-cluster.sh`, 5 replicas
+> round-robin) → OpenShift native → Knative scale-to-zero.**
+
 ### Connect an AI agent
 
 Point any MCP client at the Streamable HTTP endpoint. Example Goose extension config:
@@ -161,22 +195,25 @@ stateless-mcp-quarkus/
 ├── compose.yml                   # Postgres + 5 replicas + nginx load balancer
 ├── start-cluster.sh              # build + launch the cluster demo
 ├── stop-cluster.sh               # tear it down
+├── deploy-openshift.sh           # build native image + deploy to OpenShift
 ├── src/main/java/dev/helios/
-│   ├── ShipmentTools.java        # @Tool methods — the MCP surface
+│   ├── ShipmentTools.java        # @Tool methods — the MCP surface (+ getServerInstance)
 │   ├── ShipmentService.java      # stateless business logic (Panache DB lookups)
-│   ├── ConsoleResource.java      # thin REST facade for the SPA
 │   ├── InstanceInfo.java         # per-replica identity (makes statelessness visible)
 │   ├── domain/                   # JPA/Panache entities (Shipment, Inventory, …)
 │   └── model/                    # response records (MCP/JSON output)
 ├── src/main/resources/
-│   ├── application.properties    # Dev Services (dev/test) + env datasource (prod)
+│   ├── application.properties    # stateless MCP + Dev Services (dev/test) + OpenShift
 │   ├── import.sql                # seed data for Dev Services / tests
-│   └── META-INF/resources/index.html   # the console SPA
+│   └── META-INF/resources/index.html   # the console SPA (pure MCP client)
 ├── src/main/docker/Dockerfile.jvm
 ├── compose/
 │   ├── init.sql                  # schema + seed for the shared cluster Postgres
 │   └── nginx.conf                # round-robin across the 5 replicas
-├── src/test/java/dev/helios/HeliosMcpTest.java
+├── k8s/
+│   ├── postgres.yaml             # shared Postgres (Secret + Deployment + Service)
+│   └── knative-service.yaml      # scale-to-zero Knative Service
+├── src/test/java/dev/helios/HeliosMcpTest.java   # tests over the /mcp endpoint
 └── .github/                      # Dependabot + build-gated auto-merge workflow
 ```
 

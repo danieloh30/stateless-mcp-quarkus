@@ -5,6 +5,7 @@ import java.util.List;
 import dev.helios.model.CarrierSla;
 import dev.helios.model.DeliveryEstimate;
 import dev.helios.model.InventoryItem;
+import dev.helios.model.ServerInstance;
 import dev.helios.model.ShipmentException;
 import dev.helios.model.ShipmentStatus;
 
@@ -35,6 +36,16 @@ public class ShipmentTools {
 
     @Inject
     ShipmentService service;
+
+    @Inject
+    InstanceInfo instance;
+
+    @Tool(description = "Return the identity of the MCP server instance handling this request "
+            + "(instance ID, uptime, transport). Demonstrates stateless load balancing: with "
+            + "multiple replicas the instance ID rotates while results stay identical.")
+    public ServerInstance getServerInstance() {
+        return new ServerInstance(instance.instanceId(), instance.uptimeMs(), "Stateless Streamable HTTP");
+    }
 
     @Tool(description = "Look up the live status, carrier, route, and ETA for a Helios shipment by its tracking ID.")
     public ShipmentStatus getShipmentStatus(

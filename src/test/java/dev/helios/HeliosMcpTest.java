@@ -1,9 +1,8 @@
 package dev.helios;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.startsWith;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.quarkus.test.junit.QuarkusTest;
@@ -11,47 +10,59 @@ import jakarta.inject.Inject;
 import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Exercises the server over the real MCP endpoint (/mcp), the same JSON-RPC the
+ * console and AI agents use. No initialize/session is needed — each request is
+ * independent, which is what makes the server horizontally scalable.
+ *
+ * <p>Assertions match on the raw response body so they hold whether the server
+ * frames the reply as plain JSON or as Server-Sent Events.
+ */
 @QuarkusTest
 class HeliosMcpTest {
+
+    private static final String MCP = "/mcp";
+    private static final String ACCEPT = "application/json, text/event-stream";
 
     @Inject
     ShipmentTools tools;
 
-    @Test
-    void catalogExposesAllTools() {
-        given().when().get("/api/catalog")
+    private String post(String body) {
+        return given().contentType("application/json").header("Accept", ACCEPT)
+                .body(body).when().post(MCP)
                 .then().statusCode(200)
-                .body("size()", equalTo(5));
+                .extract().asString();
     }
 
     @Test
-    void instanceIsIdentifiedForStatelessRouting() {
-        given().when().get("/api/instance")
-                .then().statusCode(200)
-                .body("instanceId", startsWith("helios-"))
-                .body("transport", equalTo("Stateless Streamable HTTP"))
-                .body("uptimeMs", greaterThanOrEqualTo(0));
+    void toolsListWorksWithoutASession() {
+        String body = post("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}");
+        assertThat(body, containsString("getShipmentStatus"));
+        assertThat(body, containsString("getServerInstance"));
+        assertThat(body, containsString("listOpenExceptions"));
     }
 
     @Test
-    void invokeReturnsResultStampedWithServingInstance() {
-        given().contentType("application/json")
-                .body("{\"trackingId\":\"HLX-10032291\"}")
-                .when().post("/api/invoke/getShipmentStatus")
-                .then().statusCode(200)
-                .body("tool", equalTo("getShipmentStatus"))
-                .body("servedByInstance", startsWith("helios-"))
-                .body("result.status", equalTo("IN_TRANSIT"))
-                .body("result.destinationHub", equalTo("YYZ"));
+    void toolsCallReturnsResultWithoutASession() {
+        String body = post("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
+                + "{\"name\":\"getShipmentStatus\",\"arguments\":{\"trackingId\":\"HLX-10032291\"}}}");
+        assertThat(body, containsString("IN_TRANSIT"));
+        assertThat(body, containsString("YYZ"));
     }
 
     @Test
-    void unknownTrackingIdIsRejectedWith400() {
-        given().contentType("application/json")
-                .body("{\"trackingId\":\"HLX-99999999\"}")
-                .when().post("/api/invoke/getShipmentStatus")
-                .then().statusCode(400)
-                .body("error", startsWith("Unknown tracking ID"));
+    void serverInstanceToolReportsIdentity() {
+        String body = post("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
+                + "{\"name\":\"getServerInstance\",\"arguments\":{}}}");
+        assertThat(body, containsString("helios-"));
+        assertThat(body, containsString("Stateless Streamable HTTP"));
+    }
+
+    @Test
+    void malformedArgumentIsRejected() {
+        String body = post("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
+                + "{\"name\":\"getShipmentStatus\",\"arguments\":{\"trackingId\":\"BAD\"}}}");
+        assertThat(body, containsString("error"));
     }
 
     @Test

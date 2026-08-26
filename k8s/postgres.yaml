@@ -1,0 +1,73 @@
+# Shared PostgreSQL for the stateless MCP replicas on Kubernetes / OpenShift.
+# The schema + seed come from a ConfigMap created by deploy-openshift.sh:
+#   oc create configmap helios-initdb --from-file=init.sql=compose/init.sql
+#
+# The 'helios-db' Secret holds both the Postgres bootstrap vars and the app's
+# datasource env (imported into the app via quarkus.openshift.env.secrets).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: helios-db
+  labels:
+    app: helios-mcp
+stringData:
+  POSTGRES_DB: helios
+  POSTGRES_USER: helios
+  POSTGRES_PASSWORD: helios
+  QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://helios-postgres:5432/helios
+  QUARKUS_DATASOURCE_USERNAME: helios
+  QUARKUS_DATASOURCE_PASSWORD: helios
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helios-postgres
+  labels:
+    app: helios-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helios-postgres
+  template:
+    metadata:
+      labels:
+        app: helios-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17
+          envFrom:
+            - secretRef:
+                name: helios-db
+          ports:
+            - containerPort: 5432
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U helios -d helios"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: initdb
+          configMap:
+            name: helios-initdb
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: helios-postgres
+  labels:
+    app: helios-postgres
+spec:
+  selector:
+    app: helios-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
