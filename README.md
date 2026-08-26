@@ -160,12 +160,10 @@ Run both commands **from the repo root** (the `-pl` module paths resolve against
 ```bash
 # Terminal 1 — the MCP server. Dev Services auto-starts a throwaway PostgreSQL
 # (seeded from import.sql) and serves MCP on :8080.
-cd stateless-mcp-quarkus
 mvn -pl mcp-server quarkus:dev
 
 # Terminal 2 — the agent (console + supervisor/sub-agents) on :8090, pointing at :8080.
 # Reads OPENAI_API_KEY from your shell.
-cd stateless-mcp-quarkus
 mvn -pl agent quarkus:dev
 ```
 
