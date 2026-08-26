@@ -33,6 +33,10 @@ public class ShipmentService {
 
     @Transactional
     public ShipmentStatus getShipmentStatus(String trackingId) {
+        if (trackingId == null || !trackingId.matches("(?i)^HLX-[0-9]{8}$")) {
+            throw new IllegalArgumentException(
+                    "trackingId must match HLX-XXXXXXXX (8 digits), e.g. HLX-10032291");
+        }
         Shipment s = Shipment.findById(trackingId.toUpperCase());
         if (s == null) {
             throw new IllegalArgumentException("Unknown tracking ID: " + trackingId);
@@ -43,6 +47,9 @@ public class ShipmentService {
 
     @Transactional
     public InventoryItem getWarehouseInventory(String sku) {
+        if (sku == null || sku.isBlank()) {
+            throw new IllegalArgumentException("sku must not be blank, e.g. SKU-COLD-4521");
+        }
         Inventory i = Inventory.findById(sku.toUpperCase());
         if (i == null) {
             throw new IllegalArgumentException("Unknown SKU: " + sku);
@@ -54,6 +61,12 @@ public class ShipmentService {
 
     @Transactional
     public DeliveryEstimate estimateDelivery(String originHub, String destinationHub, double weightKg) {
+        if (originHub == null || !originHub.matches("^[A-Za-z]{3}$")) {
+            throw new IllegalArgumentException("originHub must be a 3-letter hub code, e.g. FRA");
+        }
+        if (destinationHub == null || !destinationHub.matches("^[A-Za-z]{3}$")) {
+            throw new IllegalArgumentException("destinationHub must be a 3-letter hub code, e.g. YYZ");
+        }
         if (weightKg <= 0) {
             throw new IllegalArgumentException("weightKg must be greater than zero");
         }
@@ -69,6 +82,9 @@ public class ShipmentService {
 
     @Transactional
     public CarrierSla getCarrierSla(String carrierId) {
+        if (carrierId == null || carrierId.isBlank()) {
+            throw new IllegalArgumentException("carrierId must not be blank, e.g. HELIOS-AIR");
+        }
         Carrier c = Carrier.findById(carrierId.toUpperCase());
         if (c == null) {
             throw new IllegalArgumentException("Unknown carrier: " + carrierId);
@@ -79,6 +95,9 @@ public class ShipmentService {
 
     @Transactional
     public List<ShipmentException> listOpenExceptions(String region) {
+        if (region == null || region.isBlank()) {
+            throw new IllegalArgumentException("region must be EU, APAC, or NA");
+        }
         String normalized = region.toUpperCase();
         if (!List.of("EU", "APAC", "NA").contains(normalized)) {
             throw new IllegalArgumentException("Unknown region: " + region + " (expected EU, APAC, or NA)");
