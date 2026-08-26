@@ -93,34 +93,51 @@ mvn clean package -Dnative           # GraalVM native — instant start, tiny me
 
 The `quarkus-openshift` extension generates the manifests at build time. The **agent** gets a Route
 (external); the **MCP servers** stay internal behind a ClusterIP Service that round-robins across
-replicas — no nginx needed on the cluster.
+replicas — no nginx needed on the cluster. The agent finds the fleet at
+`http://stateless-mcp-server:8080/mcp` (override with `MCP_FLEET_URL`), and the datasource comes from
+the `helios-db` Secret — no secrets in the image.
+
+### Step 1 — Log in and pick a project
 
 ```bash
-oc login ... && oc new-project helios
-./deploy-openshift.sh            # native images; or: ./deploy-openshift.sh jvm
+oc login ...            # cluster-admin (Step 2 installs a cluster-scoped operator)
+oc new-project helios
+```
 
-# Scale the stateless fleet — no session affinity to worry about:
+### Step 2 — Install OpenShift Serverless (once, for scale-to-zero)
+
+Required only for the Knative scale-to-zero step below. The script installs the operator and enables
+Knative Serving, waiting until both are ready:
+
+```bash
+./install-serverless.sh   # applies k8s/serverless-operator.yaml + k8s/knative-serving.yaml
+```
+
+### Step 3 — Build native images and deploy the apps + database
+
+```bash
+./deploy-openshift.sh     # native images; or: ./deploy-openshift.sh jvm  (faster build)
+```
+
+This applies the shared PostgreSQL (`k8s/postgres.yaml`) and deploys both modules. Generated
+manifests land in each module's `target/kubernetes/`.
+
+### Step 4 — Scale the stateless fleet
+
+No session affinity, so scaling is just a number:
+
+```bash
 oc scale deploy/stateless-mcp-server --replicas=8
 ```
 
-The agent finds the fleet at `http://stateless-mcp-server:8080/mcp` (override with `MCP_FLEET_URL`).
-Datasource comes from the `helios-db` Secret — no secrets in the image. Manifests land in each
-module's `target/kubernetes/`.
+### Step 5 — Scale to zero with Knative (the stateless payoff)
 
-**Scale to zero with Knative** (OpenShift Serverless) — the ultimate stateless payoff. A native
-image cold-starts in tens of milliseconds, so running zero replicas when idle is practical.
-
-First install the Serverless operator + Knative Serving (once, needs cluster-admin):
-
-```bash
-./install-serverless.sh                 # applies k8s/serverless-operator.yaml + k8s/knative-serving.yaml
-```
-
-Then run the MCP fleet as a scale-to-zero Knative Service:
+A native image cold-starts in tens of milliseconds, so running **zero** replicas when idle is
+practical. Run the MCP fleet as a Knative Service (`minScale: 0`):
 
 ```bash
 oc apply -f k8s/postgres.yaml
-oc apply -f k8s/knative-service.yaml     # stateless MCP servers, minScale: 0
+oc apply -f k8s/knative-service.yaml
 ```
 
 > Demo flow for the talk: **dev (2 processes) → local cluster (`./start-cluster.sh`, 5 replicas
