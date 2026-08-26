@@ -173,6 +173,29 @@
     <div class="stat"><div class="k">Session State</div><div class="v" style="color:var(--ok)">0<small> bytes</small></div></div>
   </div>
 
+  <div class="card" style="margin-top:22px">
+    <h3>💬 Ask the Agent <span class="badge">supervisor → specialist sub-agents → MCP fleet</span></h3>
+    <div class="card-body">
+      <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">
+        Ask a logistics question in plain English. A <strong>supervisor agent</strong> (OpenAI)
+        routes it to the right specialist — <em>Shipment</em>, <em>Inventory</em>, or
+        <em>Exceptions</em> — each of which calls the stateless MCP fleet for live data.
+      </p>
+      <div class="tags" id="askExamples" style="margin-bottom:10px">
+        <span class="tag" role="button">Where is shipment HLX-10032291 and will it be on time?</span>
+        <span class="tag" role="button">How much stock of SKU-COLD-4521 is available?</span>
+        <span class="tag" role="button">What open exceptions need attention in APAC?</span>
+        <span class="tag" role="button">Estimate FRA → YYZ for 620 kg and check HELIOS-AIR's SLA.</span>
+      </div>
+      <input id="askInput" placeholder="Ask about shipments, inventory, lanes, carriers, or exceptions…"
+             autocomplete="off" />
+      <div class="btn-row">
+        <button class="primary" id="askBtn">Ask the agent</button>
+      </div>
+      <div id="askResult"></div>
+    </div>
+  </div>
+
   <div class="grid">
     <div class="card">
       <h3>🧰 Tool Catalog <span class="badge" id="catBadge"></span></h3>
@@ -338,6 +361,34 @@
       }
     }
   }
+
+  async function ask() {
+    const input = $("#askInput");
+    const question = input.value.trim();
+    if (!question) { input.focus(); return; }
+    const btn = $("#askBtn"); btn.disabled = true; btn.textContent = "Thinking…";
+    $("#askResult").innerHTML = `<div class="meta"><span class="pill">🧭 supervisor routing to a specialist…</span></div>`;
+    const start = performance.now();
+    try {
+      const data = await postJson("agent/ask", { question });
+      const ms = Math.round(performance.now() - start);
+      const answer = (data.answer || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      $("#askResult").innerHTML = `
+        <div class="meta">
+          <span class="pill ok">✓ supervisor → sub-agent → fleet</span>
+          <span class="pill">⏱ ${ms} ms</span>
+        </div>
+        <pre style="white-space:pre-wrap">${answer}</pre>`;
+    } catch (e) {
+      $("#askResult").innerHTML = `<div class="meta"><span class="pill err">✕ ${e.message || e}</span></div>
+        <div style="font-size:12px;color:var(--muted)">Is <code>OPENAI_API_KEY</code> set for the agent?</div>`;
+    } finally { btn.disabled = false; btn.textContent = "Ask the agent"; }
+  }
+
+  $("#askBtn").addEventListener("click", ask);
+  $("#askInput").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
+  document.querySelectorAll("#askExamples .tag").forEach((el) =>
+    el.addEventListener("click", () => { $("#askInput").value = el.textContent.trim(); ask(); }));
 
   loadCatalog();
   refreshInstance();

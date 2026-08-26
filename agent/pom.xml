@@ -27,6 +27,16 @@
       <groupId>io.quarkiverse.langchain4j</groupId>
       <artifactId>quarkus-langchain4j-mcp</artifactId>
     </dependency>
+    <!-- The LLM: OpenAI chat model that powers the supervisor + sub-agents. -->
+    <dependency>
+      <groupId>io.quarkiverse.langchain4j</groupId>
+      <artifactId>quarkus-langchain4j-openai</artifactId>
+    </dependency>
+    <!-- Agentic framework: @Agent sub-agents coordinated by a @SupervisorAgent. -->
+    <dependency>
+      <groupId>io.quarkiverse.langchain4j</groupId>
+      <artifactId>quarkus-langchain4j-agentic</artifactId>
+    </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-smallrye-health</artifactId>

@@ -5,6 +5,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import dev.helios.tools.ShipmentTools;
 import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;

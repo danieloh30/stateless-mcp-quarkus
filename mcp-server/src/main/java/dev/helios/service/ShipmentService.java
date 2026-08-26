@@ -1,4 +1,4 @@
-package dev.helios;
+package dev.helios.service;
 
 import java.util.List;
 
