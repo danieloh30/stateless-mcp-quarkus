@@ -1,0 +1,44 @@
+# Knative Service — the payoff of a stateless MCP server: SCALE TO ZERO.
+#
+# With no session state, Knative can run zero replicas when the tools are idle
+# and spin new ones up on the first request. A Quarkus native image makes the
+# cold start nearly invisible (tens of milliseconds), so scale-to-zero is
+# practical for the long tail of specialized MCP tool servers.
+#
+# Prereqs: OpenShift Serverless / Knative Serving installed, the app image
+# pushed (e.g. by `mvn clean package -Dnative -Dquarkus.openshift.deploy=true`,
+# then reference that image below), and the helios-db Secret + Postgres applied.
+#
+#   kubectl apply -f k8s/postgres.yaml
+#   kubectl apply -f k8s/knative-service.yaml
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: helios-mcp
+  labels:
+    app: helios-mcp
+spec:
+  template:
+    metadata:
+      annotations:
+        # Scale to zero when idle; burst up under load.
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+        autoscaling.knative.dev/target: "50"
+    spec:
+      containers:
+        # Replace with your pushed image (internal registry or quay.io/…).
+        - image: image-registry.openshift-image-registry.svc:5000/helios/stateless-mcp-quarkus:1.0.0
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: helios-db
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8080
