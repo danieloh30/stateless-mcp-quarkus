@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Helios Control Tower — Stateless MCP Console</title>
+<title>Helios Control Tower — Agent + Stateless MCP Fleet</title>
 <style>
   :root {
     --bg: #eef1f8; --bg-grad-1: #ffffff; --bg-grad-2: #e7ebf6;
@@ -56,16 +56,16 @@
   .tags { display: flex; flex-wrap: wrap; gap: 8px; }
   .tag { font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px; background: rgba(79,70,229,.10); color: var(--indigo); }
   [data-theme="dark"] .tag { background: rgba(120,130,255,.16); color: #b9c0ff; }
-  .diagram { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px;
+  .diagram { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 16px;
     border-radius: 16px; background: var(--panel-solid); border: 1px solid var(--border); }
-  .node { text-align: center; font-size: 11px; color: var(--muted); flex: none; }
-  .node .box { width: 66px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
-    font-size: 20px; margin: 0 auto 6px; border: 1px solid var(--border); background: var(--panel); }
-  .pods { display: flex; flex-direction: column; gap: 6px; }
-  .pod { width: 66px; height: 20px; border-radius: 7px; display:flex; align-items:center; justify-content:center;
-    font-size: 10px; font-weight: 700; color: #fff; background: linear-gradient(120deg, var(--sun-1), var(--sun-2)); }
+  .node { text-align: center; font-size: 10.5px; color: var(--muted); flex: none; }
+  .node .box { width: 58px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 19px; margin: 0 auto 6px; border: 1px solid var(--border); background: var(--panel); }
+  .pods { display: flex; flex-direction: column; gap: 5px; }
+  .pod { width: 58px; height: 18px; border-radius: 7px; display:flex; align-items:center; justify-content:center;
+    font-size: 9.5px; font-weight: 700; color: #fff; background: linear-gradient(120deg, var(--sun-1), var(--sun-2)); }
   .pod.zero { background: repeating-linear-gradient(45deg,#c7cde0,#c7cde0 5px,#dbe0ee 5px,#dbe0ee 10px); color: var(--muted); }
-  .flow { flex: 1; height: 2px; background: linear-gradient(90deg, var(--indigo), var(--teal)); position: relative; opacity:.6; }
+  .flow { flex: 1; height: 2px; min-width: 12px; background: linear-gradient(90deg, var(--indigo), var(--teal)); position: relative; opacity:.6; }
   .flow::after { content:"›"; position:absolute; right:-4px; top:-12px; color: var(--teal); font-size: 20px; }
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
   .stat { padding: 14px 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border);
@@ -122,51 +122,53 @@
       <div class="logo"></div>
       <div>
         <h1>Helios Control Tower</h1>
-        <p>Stateless MCP Server · Quarkus · speaks MCP JSON-RPC to <code>/mcp</code></p>
+        <p>Agent app · MCP client → stateless MCP fleet · Quarkus</p>
       </div>
     </div>
     <div class="spacer"></div>
     <div class="chip"><span class="dot pulse"></span> <span id="transport">connecting…</span></div>
-    <div class="chip" id="instanceChip" title="The replica currently serving MCP requests">⬡ <span id="instanceId">—</span></div>
+    <div class="chip" id="instanceChip" title="The MCP server replica currently serving the agent">⬡ <span id="instanceId">—</span></div>
     <button class="icon-btn" id="themeToggle" title="Toggle theme">◐</button>
   </header>
 
   <section class="hero">
     <div>
-      <h2>A pure-MCP console over stateless HTTP</h2>
+      <h2>An agent in front of a stateless MCP fleet</h2>
       <p class="lead">
-        This page is an <strong>MCP client</strong>: it calls <code>tools/list</code> and
-        <code>tools/call</code> straight against the server's <code>/mcp</code> endpoint over
-        Streamable HTTP — no session, no <code>initialize</code> handshake required. Because each
-        request is fully independent, the platform load-balances across replicas trivially and
-        <strong>scales to zero</strong> when idle. Built on Quarkus for instant startup and a tiny
-        footprint; data lives in a shared PostgreSQL.
+        This console is the <strong>agent app</strong>. It calls a server-side
+        <strong>MCP client</strong> (managed <code>McpClient</code>), which reaches a fleet of
+        <strong>stateless MCP servers</strong> through a load balancer. Because the servers keep no
+        session state, every <code>tools/call</code> can land on a different replica — the platform
+        load-balances trivially and <strong>scales to zero</strong> when idle. Built on Quarkus;
+        tool data lives in a shared PostgreSQL.
       </p>
       <div class="tags">
-        <span class="tag">MCP JSON-RPC</span>
-        <span class="tag">No session</span>
+        <span class="tag">Agent → MCP client → fleet</span>
+        <span class="tag">Stateless HTTP</span>
         <span class="tag">Scale to Zero</span>
         <span class="tag">PostgreSQL lookups</span>
         <span class="tag">AOT / Native-ready</span>
       </div>
     </div>
-    <div class="diagram" title="MCP client → load balancer → stateless replicas → shared DB">
-      <div class="node"><div class="box">🖥️</div>MCP<br>Client</div>
+    <div class="diagram" title="browser → agent → MCP client → LB → stateless replicas → shared DB">
+      <div class="node"><div class="box">🖥️</div>Agent<br>(this UI)</div>
       <div class="flow"></div>
-      <div class="node"><div class="box">⚖️</div>Load<br>Balancer</div>
+      <div class="node"><div class="box">🔌</div>MCP<br>Client</div>
+      <div class="flow"></div>
+      <div class="node"><div class="box">⚖️</div>LB</div>
       <div class="flow"></div>
       <div class="node">
-        <div class="pods"><div class="pod">pod</div><div class="pod">pod</div><div class="pod zero">0</div></div>
-        <div style="margin-top:6px">Stateless<br>replicas</div>
+        <div class="pods"><div class="pod">mcp</div><div class="pod">mcp</div><div class="pod zero">0</div></div>
+        <div style="margin-top:6px">Stateless<br>fleet</div>
       </div>
       <div class="flow"></div>
-      <div class="node"><div class="box">🗄️</div>Shared<br>Postgres</div>
+      <div class="node"><div class="box">🗄️</div>Postgres</div>
     </div>
   </section>
 
   <div class="stats">
-    <div class="stat"><div class="k">Serving Instance</div><div class="v" id="stInstance">—</div></div>
-    <div class="stat"><div class="k">Instance Uptime</div><div class="v" id="stUptime">—</div></div>
+    <div class="stat"><div class="k">Serving Replica</div><div class="v" id="stInstance">—</div></div>
+    <div class="stat"><div class="k">Replica Uptime</div><div class="v" id="stUptime">—</div></div>
     <div class="stat"><div class="k">MCP Tools</div><div class="v" id="stTools">—</div></div>
     <div class="stat"><div class="k">Session State</div><div class="v" style="color:var(--ok)">0<small> bytes</small></div></div>
   </div>
@@ -174,12 +176,12 @@
   <div class="grid">
     <div class="card">
       <h3>🧰 Tool Catalog <span class="badge" id="catBadge"></span></h3>
-      <div class="card-body" id="toolList"><div class="empty">Loading tools via <code>tools/list</code>…</div></div>
+      <div class="card-body" id="toolList"><div class="empty">Discovering tools from the fleet…</div></div>
     </div>
     <div class="card">
-      <h3>▶️ Invoke <span class="badge">tools/call · stateless</span></h3>
+      <h3>▶️ Invoke <span class="badge">agent → MCP client → fleet</span></h3>
       <div class="card-body" id="invokePanel">
-        <div class="empty">Select a tool on the left to run a stateless MCP <code>tools/call</code>.</div>
+        <div class="empty">Select a tool on the left. The agent calls it on the fleet via MCP.</div>
       </div>
     </div>
   </div>
@@ -187,16 +189,16 @@
   <footer>
     Helios Logistics is a fictional enterprise for the talk
     <em>“Going Stateless: Scaling MCP Servers to Cloud-Native Java &amp; HTTP.”</em><br>
-    This console uses only the MCP endpoint <code>/mcp</code> · Health: <code>/q/health</code> ·
+    The agent reaches the fleet with a managed <code>McpClient</code> (quarkus-langchain4j-mcp) ·
     Built with <a href="https://quarkus.io" target="_blank" rel="noopener">Quarkus</a>.
   </footer>
 </div>
 
 <script>
   const $ = (s) => document.querySelector(s);
-  let tools = [], selected = null, rpcId = 0;
+  let tools = [], selected = null;
 
-  // Friendly labels/icons + example args (schema has no examples).
+  // Friendly labels/icons + example args for each tool.
   const META = {
     getShipmentStatus:    { title: "Track a Shipment", icon: "📦",  sample: { trackingId: "HLX-10032291" } },
     getWarehouseInventory:{ title: "Check Inventory",  icon: "🏬",  sample: { sku: "SKU-COLD-4521" } },
@@ -205,7 +207,6 @@
     listOpenExceptions:   { title: "Open Exceptions",  icon: "⚠️",  sample: { region: "APAC" } },
   };
 
-  // ---- theme ----
   const savedTheme = localStorage.getItem("helios-theme");
   if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
   $("#themeToggle").addEventListener("click", () => {
@@ -214,35 +215,14 @@
     localStorage.setItem("helios-theme", next);
   });
 
-  // ---- MCP JSON-RPC client (stateless: no initialize, no session id) ----
-  async function mcp(method, params) {
-    const res = await fetch("mcp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json, text/event-stream" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params: params || {} }),
-    });
-    const text = await res.text();
-    let data;
-    if (text.includes("data:")) { // tolerate SSE framing
-      const line = text.split("\n").filter((l) => l.startsWith("data:")).pop();
-      data = JSON.parse(line ? line.slice(5).trim() : text);
-    } else {
-      data = JSON.parse(text);
-    }
-    if (data.error) throw new Error(data.error.message || "MCP error");
-    return data.result;
+  async function getJson(url) { const r = await fetch(url); if (!r.ok) throw new Error((await r.json()).error || r.status); return r.json(); }
+  async function postJson(url, body) {
+    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "request failed");
+    return data;
   }
 
-  async function callTool(name, args) {
-    const r = await mcp("tools/call", { name, arguments: args || {} });
-    const txt = r.content && r.content[0] ? r.content[0].text : "";
-    if (r.isError) throw new Error(txt || "tool error");
-    try { return JSON.parse(txt); } catch { return txt; }
-  }
-
-  async function serverInstance() { return callTool("getServerInstance", {}); }
-
-  // ---- JSON syntax highlight ----
   function hl(obj) {
     const json = JSON.stringify(obj, null, 2);
     return json.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -255,53 +235,45 @@
           return `<span class="${cls}">${m}</span>`;
         });
   }
-  function fmtUptime(ms) {
-    const s = Math.floor(ms / 1000);
-    if (s < 60) return s + "s";
-    return Math.floor(s / 60) + "m " + (s % 60) + "s";
-  }
+  function fmtUptime(ms) { const s = Math.floor(ms / 1000); return s < 60 ? s + "s" : Math.floor(s/60) + "m " + (s%60) + "s"; }
 
-  // ---- header badge / stats (polls getServerInstance over MCP) ----
   async function refreshInstance() {
     try {
-      const si = await serverInstance();
+      const si = await getJson("agent/instance");
       $("#transport").textContent = si.transport;
       $("#instanceId").textContent = si.instanceId;
-      $("#stInstance").textContent = si.instanceId.replace("helios-", "");
+      $("#stInstance").textContent = String(si.instanceId).replace("helios-", "");
       $("#stUptime").textContent = fmtUptime(si.uptimeMs);
-    } catch (e) { $("#transport").textContent = "server unreachable"; }
+    } catch (e) { $("#transport").textContent = "fleet unreachable"; }
   }
 
-  // ---- build catalog from tools/list ----
   async function loadCatalog() {
-    const r = await mcp("tools/list", {});
-    tools = (r.tools || []).filter((t) => t.name !== "getServerInstance");
-    $("#stTools").textContent = tools.length;
-    $("#catBadge").textContent = tools.length + " tools";
-    $("#toolList").innerHTML = tools.map((t) => {
-      const m = META[t.name] || { title: t.name, icon: "🔧" };
-      return `<button class="tool" data-name="${t.name}">
-        <div class="ic">${m.icon}</div>
-        <div>
-          <div class="t">${m.title}</div>
-          <div class="d">${t.description || ""}</div>
-          <code>${t.name}()</code>
-        </div></button>`;
-    }).join("");
-    document.querySelectorAll(".tool").forEach((el) => el.addEventListener("click", () => select(el.dataset.name)));
+    try {
+      tools = await getJson("agent/catalog");
+      $("#stTools").textContent = tools.length;
+      $("#catBadge").textContent = tools.length + " tools";
+      $("#toolList").innerHTML = tools.map((t) => {
+        const m = META[t.name] || { title: t.name, icon: "🔧" };
+        return `<button class="tool" data-name="${t.name}">
+          <div class="ic">${m.icon}</div>
+          <div><div class="t">${m.title}</div><div class="d">${t.description || ""}</div><code>${t.name}()</code></div>
+        </button>`;
+      }).join("");
+      document.querySelectorAll(".tool").forEach((el) => el.addEventListener("click", () => select(el.dataset.name)));
+    } catch (e) {
+      $("#toolList").innerHTML = `<div class="empty">Could not reach the agent: ${e.message}</div>`;
+    }
   }
 
   function select(name) {
     selected = tools.find((t) => t.name === name);
     const m = META[name] || { title: name, sample: {} };
     document.querySelectorAll(".tool").forEach((el) => el.classList.toggle("active", el.dataset.name === name));
-    const props = (selected.inputSchema && selected.inputSchema.properties) || {};
-    const required = (selected.inputSchema && selected.inputSchema.required) || [];
-    const fields = Object.keys(props).map((k) => {
+    const fields = (selected.params || []).map((k) => {
       const def = (m.sample && m.sample[k] != null) ? m.sample[k] : "";
-      const req = required.includes(k) ? '<span style="color:var(--err)">*</span>' : "";
-      return `<label>${k} ${req}</label>
-        <input data-arg="${k}" data-type="${props[k].type || "string"}" value="${def}" placeholder="${props[k].description || ""}" />`;
+      const isNum = typeof (m.sample || {})[k] === "number";
+      return `<label>${k} <span style="color:var(--err)">*</span></label>
+        <input data-arg="${k}" data-num="${isNum}" value="${def}" placeholder="${k}" />`;
     }).join("");
     $("#invokePanel").innerHTML = `
       <div style="font-weight:700;font-size:13.5px">${m.title}
@@ -310,7 +282,7 @@
       ${fields}
       <div class="btn-row">
         <button class="primary" id="runBtn">Run tool</button>
-        <button class="ghost" id="burstBtn" title="Fire 5 getServerInstance calls to show requests hit different replicas">Run 5× (statelessness)</button>
+        <button class="ghost" id="burstBtn" title="Fire 5 requests to show they hit different replicas">Run 5× (statelessness)</button>
       </div>
       <div id="result"></div>
       <div class="burst" id="burst"></div>`;
@@ -321,10 +293,7 @@
   function collectArgs() {
     const args = {};
     document.querySelectorAll("[data-arg]").forEach((el) => {
-      let v = el.value;
-      if (el.dataset.type === "number" || el.dataset.type === "integer") v = v === "" ? v : Number(v);
-      else if (el.dataset.type === "boolean") v = v === "true";
-      args[el.dataset.arg] = v;
+      args[el.dataset.arg] = el.dataset.num === "true" && el.value !== "" ? Number(el.value) : el.value;
     });
     return args;
   }
@@ -334,35 +303,33 @@
     $("#burst").classList.remove("show");
     const start = performance.now();
     try {
-      const result = await callTool(selected.name, collectArgs());
+      const data = await postJson("agent/invoke/" + selected.name, collectArgs());
       const ms = Math.round(performance.now() - start);
       $("#result").innerHTML = `
         <div class="meta">
-          <span class="pill ok">✓ MCP tools/call</span>
+          <span class="pill ok">✓ agent → fleet</span>
           <span class="pill">⏱ ${ms} ms round-trip</span>
           <span class="pill">no session</span>
         </div>
-        <pre>${hl(result)}</pre>`;
+        <pre>${hl(data.result)}</pre>`;
     } catch (e) {
       $("#result").innerHTML = `
         <div class="meta"><span class="pill err">✕ ${e.message || e}</span></div>
-        <div style="font-size:12px;color:var(--muted)">Bean Validation runs on the server before any DB lookup — a stateless request in, a JSON-RPC error out.</div>`;
-    } finally {
-      btn.disabled = false; btn.textContent = "Run tool";
-    }
+        <div style="font-size:12px;color:var(--muted)">Validation runs on the MCP server before any DB lookup — a stateless request in, a clean error out.</div>`;
+    } finally { btn.disabled = false; btn.textContent = "Run tool"; }
   }
 
   async function burst() {
     const box = $("#burst");
     box.classList.add("show");
     box.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">
-      5 independent <code>getServerInstance</code> calls — no session, no ordering. Run the cluster
+      5 independent requests through the agent's MCP client — no session, no ordering. Run the cluster
       (<code>./start-cluster.sh</code>) and the serving replica rotates below; in single dev mode
-      you'll see one instance — same guarantee, one replica.</div>`;
+      you'll see one replica — same guarantee, one server.</div>`;
     for (let i = 1; i <= 5; i++) {
       const start = performance.now();
       try {
-        const si = await serverInstance();
+        const si = await getJson("agent/instance");
         const ms = Math.round(performance.now() - start);
         box.insertAdjacentHTML("beforeend",
           `<div class="brow"><span class="n">#${i}</span><span class="id">⬡ ${si.instanceId}</span><span class="lat">${ms} ms</span></div>`);

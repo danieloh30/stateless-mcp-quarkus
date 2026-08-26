@@ -1,7 +1,8 @@
-# Helios Control Tower — Stateless MCP Server on Quarkus
+# Helios Control Tower — Agent + Stateless MCP Fleet on Quarkus
 
-A production-shaped demo of a **stateless, cloud-native MCP (Model Context Protocol) server**
-built with **Quarkus** and **Java 25**, with a polished single-page console UI.
+A production-shaped demo of **stateless, cloud-native MCP (Model Context Protocol) servers** on
+**Quarkus** / **Java 25**, fronted by a separate **agent** app (an MCP client) with a polished
+single-page console.
 
 > Companion demo for the talk **“Going Stateless: Scaling MCP Servers to Cloud-Native Java & HTTP”**
 > (MCP Dev Summit, Toronto 2026).
@@ -10,55 +11,29 @@ built with **Quarkus** and **Java 25**, with a polished single-page console UI.
 
 ## The enterprise scenario
 
-**Helios Logistics** is a fictional global freight & supply-chain company. Its AI agents and
-operations teams need to query live enterprise data — shipment tracking, warehouse inventory,
-lane pricing, carrier SLAs, and open exceptions.
-
-Rather than one stateful, session-heavy tool server, Helios runs a **fleet of tiny, single-purpose
-MCP tool servers**. Each tool is a stateless lookup: validate arguments → run one query →
-return a structured record. Because no state is carried between calls:
-
-- 🔀 **Load balancing is trivial** — any replica can serve any request, no session affinity.
-- 📉 **Scale to zero** — when the tools are idle, the platform scales replicas to zero and pays nothing.
-- ⚡ **Instant, dense, cheap** — Quarkus starts in milliseconds with a tiny heap, so you can pack many
-  specialized tool servers per node (and go GraalVM native / AOT for even more).
-
-The console UI makes statelessness visible: a header badge polls the `getServerInstance` MCP tool
-to show which replica is serving right now, and a **“Run 5×”** button fires independent MCP calls —
-in the cluster you watch the serving instance rotate while the result never changes.
-
----
-
-## Architecture
+**Helios Logistics** is a fictional global freight company. Its AI agents and ops teams query live
+enterprise data — shipment tracking, warehouse inventory, lane pricing, carrier SLAs, open
+exceptions. Instead of one stateful, session-heavy server, Helios runs a **fleet of stateless MCP
+tool servers**, and a separate **agent** app talks to them:
 
 ```
-  AI Agent (Goose / Claude)            Browser Console (SPA)
-          │  MCP / JSON-RPC                     │  REST
-          ▼  (Streamable HTTP, stateless)       ▼
-   ┌───────────────────────────────────────────────────────┐
-   │            Load balancer (nginx / K8s Service)         │  :8080
-   └───────────────────────────────────────────────────────┘
-        │        │        │        │        │
-        ▼        ▼        ▼        ▼        ▼    (scale to zero when idle)
-   ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐
-   │ app1 │ │ app2 │ │ app3 │ │ app4 │ │ app5 │   5 identical STATELESS
-   │Quarkus│ │Quarkus│ │Quarkus│ │Quarkus│ │Quarkus│  MCP replicas
-   └──────┘ └──────┘ └──────┘ └──────┘ └──────┘
-        └────────┴────────┼────────┴────────┘
-                          ▼
-                 ┌──────────────────┐
-                 │   PostgreSQL     │   the ONLY place state lives —
-                 │   (shared)       │   shared by every replica
-                 └──────────────────┘
+browser SPA ─▶ Agent app ─▶ MCP client ─▶ Load balancer ─▶ 5 stateless MCP servers ─▶ shared Postgres
+              (this UI)     (McpClient)     (nginx / K8s Svc)   (identical replicas)
 ```
 
-The replicas hold **zero** in-JVM state; all data lives in a shared PostgreSQL. That is what lets
-requests round-robin freely across replicas — any instance serves any request, and the fleet can
-scale to zero when idle. Everything is exposed as `@Tool` methods over MCP, and the browser console
-is itself a **pure MCP client** — it calls `tools/list` and `tools/call` straight against `/mcp`,
-the same protocol an AI agent uses. The server runs in **stateless mode**
-(`quarkus.mcp.server.http.streamable.auto-init=true`): no `initialize` handshake or session is
-required, so each request is independent and load-balances across replicas.
+The two tiers have clean responsibilities:
+
+- **`agent/`** — the front door. Serves the console SPA and holds a **managed `McpClient`**
+  (`quarkus-langchain4j-mcp`) that speaks MCP to the fleet. This is the *MCP client* tier.
+- **`mcp-server/`** — pure MCP tool servers: `@Tool` methods + PostgreSQL lookups, no UI. Run as
+  **5 identical stateless replicas** behind the load balancer.
+
+Because the servers keep **zero** in-JVM state (all state lives in Postgres), each `tools/call` can
+be served by any replica. The console's **“Run 5×”** shows the serving replica rotating while the
+result never changes — real horizontal scaling, and the basis for **scale to zero**.
+
+Statelessness is enabled with `quarkus.mcp.server.http.streamable.auto-init=true`: no `initialize`
+handshake or session is required, so there's no affinity to pin a client to one replica.
 
 ---
 
@@ -72,150 +47,115 @@ required, so each request is independent and load-balances across replicas.
 | `getCarrierSla` | On-time %, transit days, damage rate for a carrier | `HELIOS-AIR` |
 | `listOpenExceptions` | Shipments needing operator attention in a region | `APAC` |
 
-Every argument is hardened with Jakarta Bean Validation (`@Pattern`, `@Positive`, `@Size`) —
-malformed input is rejected before any lookup runs.
+Arguments are hardened with Jakarta Bean Validation (`@Pattern`, `@Positive`, `@Size`) — malformed
+input is rejected before any DB lookup. (A `getServerInstance` tool also exists, used by the console
+to reveal which replica served a request.)
 
 ---
 
-## Run it — single instance (dev)
+## Run it — dev mode (two processes)
 
-Prerequisites: **Java 25+**, **Maven 3.9+**, and a container runtime (**Docker** or **Podman**)
-for the database.
+Prerequisites: **Java 25+**, **Maven 3.9+**, and **Docker** or **Podman** (for the database).
 
 ```bash
-mvn quarkus:dev
+# Terminal 1 — the MCP server. Dev Services auto-starts a throwaway PostgreSQL
+# (seeded from import.sql) and serves MCP on :8080.
+mvn -pl mcp-server quarkus:dev
+
+# Terminal 2 — the agent (console + MCP client) on :8090, pointing at :8080.
+mvn -pl agent quarkus:dev
 ```
 
-Quarkus **Dev Services** automatically starts a throwaway **PostgreSQL** container and seeds it
-from `import.sql` — no database to install or configure. Then open:
+Open the console at **<http://localhost:8090/>**. In dev there is one MCP server, so “Run 5×” shows
+a single replica — same stateless guarantee, one server.
 
-- 🖥️  **Console UI** — <http://localhost:8080/>
-- 🔌 **MCP endpoint** — `http://localhost:8080/mcp` (Streamable HTTP)
-- ❤️  **Health** — <http://localhost:8080/q/health>
-
-In dev mode there is one replica, so the console shows a single serving instance — same stateless
-guarantee, one server.
+Other endpoints: MCP at `http://localhost:8080/mcp`, health at `/q/health` on each app.
 
 ## Run it — the cluster (see real statelessness)
 
-To actually watch requests spread across a fleet, launch **5 identical stateless replicas** behind
-an nginx load balancer, all sharing one PostgreSQL:
+Launch the full topology — **agent → LB → 5 stateless MCP replicas → shared Postgres**:
 
 ```bash
-./start-cluster.sh      # builds the app + image, starts Postgres + 5 replicas + LB
+./start-cluster.sh      # builds both images, starts everything
 open http://localhost:8080
-# Pick a tool → "Run 5×" → the serving instance rotates across all 5 replicas,
-# while the result never changes.
-./stop-cluster.sh       # tear everything down
+# Pick a tool → "Run 5×" → the serving replica rotates across all 5, results identical.
+./stop-cluster.sh       # tear down
 ```
-
-This is the whole point of the talk, made real: no session affinity, plain round-robin, identical
-results from any replica.
 
 ## Package & native
 
 ```bash
-mvn clean package
-java -jar target/quarkus-app/quarkus-run.jar
-
-# GraalVM native executable — instant startup, minimal memory, ideal for scale-to-zero:
-mvn clean package -Dnative
+mvn clean package                    # builds both modules
+mvn clean package -Dnative           # GraalVM native — instant start, tiny memory
 ```
 
 ## Deploy to OpenShift / Kubernetes (native + scale-to-zero)
 
-This is where the talk's thesis pays off: a stateless server is just a cloud-native microservice,
-so it deploys, scales, and scales-to-zero like any other. The `quarkus-openshift` extension
-generates the manifests (Deployment, Service, Route, S2I BuildConfig, health probes) at build time.
+The `quarkus-openshift` extension generates the manifests at build time. The **agent** gets a Route
+(external); the **MCP servers** stay internal behind a ClusterIP Service that round-robins across
+replicas — no nginx needed on the cluster.
 
 ```bash
 oc login ... && oc new-project helios
+./deploy-openshift.sh            # native images; or: ./deploy-openshift.sh jvm
 
-# Build a NATIVE image and deploy it, plus a shared PostgreSQL:
-./deploy-openshift.sh            # or: ./deploy-openshift.sh jvm  (faster build)
-
-# Scale the stateless fleet up/down at will — no session affinity to worry about:
-oc scale deploy/stateless-mcp-quarkus --replicas=5
+# Scale the stateless fleet — no session affinity to worry about:
+oc scale deploy/stateless-mcp-server --replicas=8
 ```
 
-The datasource comes from the `helios-db` Secret (no secrets in the image); liveness/readiness
-probes are wired from `quarkus-smallrye-health`. Generated manifests land in `target/kubernetes/`.
+The agent finds the fleet at `http://stateless-mcp-server:8080/mcp` (override with `MCP_FLEET_URL`).
+Datasource comes from the `helios-db` Secret — no secrets in the image. Manifests land in each
+module's `target/kubernetes/`.
 
 **Scale to zero with Knative** (OpenShift Serverless) — the ultimate stateless payoff. A native
 image cold-starts in tens of milliseconds, so running zero replicas when idle is practical:
 
 ```bash
 oc apply -f k8s/postgres.yaml
-oc apply -f k8s/knative-service.yaml    # minScale: 0 — no traffic, no pods, no cost
+oc apply -f k8s/knative-service.yaml   # stateless MCP servers, minScale: 0
 ```
 
-> The demo flow for the talk: **dev (Dev Services) → local cluster (`./start-cluster.sh`, 5 replicas
+> Demo flow for the talk: **dev (2 processes) → local cluster (`./start-cluster.sh`, 5 replicas
 > round-robin) → OpenShift native → Knative scale-to-zero.**
-
-### Connect an AI agent
-
-Point any MCP client at the Streamable HTTP endpoint. Example Goose extension config:
-
-```yaml
-extensions:
-  helios:
-    type: streamable_http
-    uri: http://localhost:8080/mcp
-```
-
----
-
-## Why stateless matters (the talk in one paragraph)
-
-Classic MCP deployments lean on long-lived sessions, which pin a client to one server instance and
-block horizontal scaling and scale-to-zero. The updated MCP spec’s **stateless Streamable HTTP**
-turns each call into an independent request — so an MCP server becomes an ordinary, cloud-native
-microservice. Pair that with Quarkus (AOT compilation, reactive routing, millisecond startup, small
-heap) and you get high-density AI infrastructure: many specialized, memory-efficient tool servers
-that start instantly and cost nothing when idle.
 
 ---
 
 ## Automated dependency upgrades
 
-This repo keeps its Quarkus platform and extensions current automatically:
-
-- **`.github/dependabot.yml`** runs a **daily** check for Maven (`io.quarkus*`, `io.quarkiverse.mcp*`,
-  grouped) and GitHub Actions updates.
-- **`.github/workflows/dependabot-auto-merge.yml`** builds and tests each Dependabot PR, then
-  **auto-approves and auto-merges** it — but only if the build and tests pass.
-
----
+- **`.github/dependabot.yml`** — **daily** Maven (`io.quarkus*`, `io.quarkiverse.mcp*`, grouped) and
+  GitHub Actions checks.
+- **`.github/workflows/dependabot-auto-merge.yml`** — builds/tests each Dependabot PR, then
+  **auto-merges** only if it passes.
 
 ## Project layout
 
 ```
-stateless-mcp-quarkus/
-├── pom.xml
-├── compose.yml                   # Postgres + 5 replicas + nginx load balancer
-├── start-cluster.sh              # build + launch the cluster demo
-├── stop-cluster.sh               # tear it down
-├── deploy-openshift.sh           # build native image + deploy to OpenShift
-├── src/main/java/dev/helios/
-│   ├── ShipmentTools.java        # @Tool methods — the MCP surface (+ getServerInstance)
-│   ├── ShipmentService.java      # stateless business logic (Panache DB lookups)
-│   ├── InstanceInfo.java         # per-replica identity (makes statelessness visible)
-│   ├── domain/                   # JPA/Panache entities (Shipment, Inventory, …)
-│   └── model/                    # response records (MCP/JSON output)
-├── src/main/resources/
-│   ├── application.properties    # stateless MCP + Dev Services (dev/test) + OpenShift
-│   ├── import.sql                # seed data for Dev Services / tests
-│   └── META-INF/resources/index.html   # the console SPA (pure MCP client)
-├── src/main/docker/Dockerfile.jvm
-├── compose/
-│   ├── init.sql                  # schema + seed for the shared cluster Postgres
-│   └── nginx.conf                # round-robin across the 5 replicas
-├── k8s/
-│   ├── postgres.yaml             # shared Postgres (Secret + Deployment + Service)
-│   └── knative-service.yaml      # scale-to-zero Knative Service
-├── src/test/java/dev/helios/HeliosMcpTest.java   # tests over the /mcp endpoint
-└── .github/                      # Dependabot + build-gated auto-merge workflow
+stateless-mcp-quarkus/               (parent / aggregator pom)
+├── mcp-server/                      # stateless MCP tool servers (run as 5 replicas)
+│   ├── src/main/java/dev/helios/
+│   │   ├── ShipmentTools.java       #   @Tool methods (+ getServerInstance)
+│   │   ├── ShipmentService.java     #   stateless business logic (Panache)
+│   │   ├── InstanceInfo.java        #   per-replica identity
+│   │   ├── domain/ , model/         #   JPA entities + response records
+│   │   └── ...
+│   ├── src/main/resources/          #   application.properties, import.sql
+│   ├── src/main/docker/Dockerfile.jvm
+│   └── src/test/java/...HeliosMcpTest.java   # tests over /mcp
+├── agent/                           # MCP client + console (the front door)
+│   ├── src/main/java/dev/helios/agent/
+│   │   ├── AgentService.java        #   managed McpClient → the fleet
+│   │   └── AgentResource.java       #   REST the SPA calls (/agent/*)
+│   ├── src/main/resources/
+│   │   ├── application.properties
+│   │   └── META-INF/resources/index.html   # the console SPA
+│   └── src/main/docker/Dockerfile.jvm
+├── compose.yml                      # postgres + 5 mcp replicas + nginx LB + agent
+├── compose/ (init.sql, nginx.conf)
+├── k8s/ (postgres.yaml, knative-service.yaml)
+├── start-cluster.sh / stop-cluster.sh / deploy-openshift.sh
+└── .github/                         # Dependabot + build-gated auto-merge
 ```
 
-Built with [Quarkus](https://quarkus.io) and the
-[Quarkus MCP Server](https://github.com/quarkiverse/quarkus-mcp-server) extension.
+Built with [Quarkus](https://quarkus.io), the
+[Quarkus MCP Server](https://github.com/quarkiverse/quarkus-mcp-server), and
+[Quarkus LangChain4j MCP](https://docs.quarkiverse.io/quarkus-langchain4j/dev/) client.

@@ -1,0 +1,15 @@
+# JVM image for the agent (MCP client + console).
+# Build:  mvn -pl agent -am clean package -DskipTests
+# Image:  podman build -t helios-agent:latest -f agent/src/main/docker/Dockerfile.jvm agent
+FROM eclipse-temurin:25-jre
+
+WORKDIR /work
+
+COPY --chmod=0755 target/quarkus-app/lib/ /work/lib/
+COPY --chmod=0755 target/quarkus-app/*.jar /work/
+COPY --chmod=0755 target/quarkus-app/app/ /work/app/
+COPY --chmod=0755 target/quarkus-app/quarkus/ /work/quarkus/
+
+EXPOSE 8080
+ENV LANG=C.UTF-8
+ENTRYPOINT ["java", "-jar", "/work/quarkus-run.jar"]
