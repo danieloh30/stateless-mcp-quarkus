@@ -14,9 +14,9 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: helios-mcp
+  name: stateless-mcp-server
   labels:
-    app: helios-mcp
+    app: stateless-mcp-server
 spec:
   template:
     metadata:
@@ -27,8 +27,9 @@ spec:
         autoscaling.knative.dev/target: "50"
     spec:
       containers:
-        # Replace with your pushed image (internal registry or quay.io/…).
-        - image: image-registry.openshift-image-registry.svc:5000/helios/stateless-mcp-quarkus:1.0.0
+        # Replace with your pushed MCP-server image (internal registry or quay.io/…).
+        # The agent then points MCP_FLEET_URL at this Knative service's URL.
+        - image: image-registry.openshift-image-registry.svc:5000/helios/stateless-mcp-server:1.0.0
           ports:
             - containerPort: 8080
           envFrom:
