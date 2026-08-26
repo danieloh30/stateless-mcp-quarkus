@@ -54,6 +54,9 @@ services:
     image: ${AGENT_IMAGE:-helios-agent:latest}
     environment:
       MCP_FLEET_URL: http://lb:8080/mcp
+      # The agent's supervisor + sub-agents need an OpenAI key; passed from your shell.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY in your shell before start-cluster.sh}
+      HELIOS_LLM_MODEL: ${HELIOS_LLM_MODEL:-gpt-5.6-sol}
     ports:
       - "8080:8080"
     depends_on: [lb]

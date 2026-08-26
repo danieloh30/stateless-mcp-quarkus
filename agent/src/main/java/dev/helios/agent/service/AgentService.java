@@ -1,4 +1,4 @@
-package dev.helios.agent;
+package dev.helios.agent.service;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,6 +59,15 @@ public class AgentService {
         } catch (Exception e) {
             return text;
         }
+    }
+
+    /**
+     * Invoke a fleet tool and return the raw MCP result text. Used by the agentic
+     * tool bridges: an LLM tool wants the plain string (validation errors included),
+     * not a parsed tree.
+     */
+    public String invokeText(String tool, Map<String, Object> args) {
+        return exec(tool, toJson(args == null ? Map.of() : args));
     }
 
     /** Ask the serving replica who it is (MCP {@code getServerInstance} tool). */

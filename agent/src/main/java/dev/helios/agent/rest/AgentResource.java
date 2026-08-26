@@ -1,4 +1,4 @@
-package dev.helios.agent;
+package dev.helios.agent.rest;
 
 import java.util.List;
 import java.util.Map;
@@ -6,7 +6,13 @@ import java.util.Map;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
+import dev.helios.agent.agents.HeliosSupervisor;
+import dev.helios.agent.dto.AskRequest;
+import dev.helios.agent.dto.AskResult;
+import dev.helios.agent.dto.InvokeResult;
+import dev.helios.agent.service.AgentService;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -26,8 +32,8 @@ public class AgentResource {
     @Inject
     AgentService agent;
 
-    public record InvokeResult(String tool, Object result) {
-    }
+    @Inject
+    HeliosSupervisor supervisor;
 
     @GET
     @Path("catalog")
@@ -45,6 +51,21 @@ public class AgentResource {
     @Path("instance")
     public Object instance() {
         return agent.serverInstance();
+    }
+
+    /**
+     * Natural-language endpoint: the supervisor routes the question to the right specialist
+     * sub-agent(s), which call the stateless MCP fleet for live data, and returns an answer.
+     */
+    @POST
+    @Path("ask")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public AskResult ask(AskRequest req) {
+        String question = req == null ? null : req.question();
+        if (question == null || question.isBlank()) {
+            throw new IllegalArgumentException("Ask a question first.");
+        }
+        return new AskResult(supervisor.ask(question));
     }
 
     @ServerExceptionMapper
