@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Daily check for Quarkus platform + extension upgrades.
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      quarkus:
+        patterns:
+          - "io.quarkus*"
+      mcp-server:
+        patterns:
+          - "io.quarkiverse.mcp*"
+
+  # Keep the GitHub Actions used by the auto-merge workflow current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"

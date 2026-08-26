@@ -1,0 +1,23 @@
+target/
+build/
+.mvn/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# OS
+.DS_Store
+
+# Quarkus
+.quarkus/
+*.log

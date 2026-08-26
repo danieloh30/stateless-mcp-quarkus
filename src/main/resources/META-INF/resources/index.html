@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Helios Control Tower — Stateless MCP Console</title>
+<style>
+  :root {
+    --bg: #eef1f8;
+    --bg-grad-1: #ffffff;
+    --bg-grad-2: #e7ebf6;
+    --panel: rgba(255, 255, 255, 0.72);
+    --panel-solid: #ffffff;
+    --border: rgba(20, 30, 70, 0.10);
+    --text: #141a2e;
+    --muted: #5a6480;
+    --sun-1: #f59e0b;
+    --sun-2: #ef4444;
+    --indigo: #4f46e5;
+    --teal: #0ea5a4;
+    --ok: #059669;
+    --warn: #d97706;
+    --err: #dc2626;
+    --code-bg: #0f1530;
+    --shadow: 0 18px 45px rgba(28, 40, 90, 0.12);
+  }
+  [data-theme="dark"] {
+    --bg: #070b18;
+    --bg-grad-1: #0d1428;
+    --bg-grad-2: #070b18;
+    --panel: rgba(20, 28, 54, 0.62);
+    --panel-solid: #121a33;
+    --border: rgba(150, 170, 230, 0.14);
+    --text: #eaeefb;
+    --muted: #9aa6c8;
+    --code-bg: #060a18;
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1200px 600px at 82% -8%, rgba(245, 158, 11, 0.18), transparent 60%),
+      radial-gradient(1000px 620px at -6% 8%, rgba(79, 70, 229, 0.16), transparent 55%),
+      linear-gradient(160deg, var(--bg-grad-1), var(--bg-grad-2));
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 26px 22px 60px; }
+
+  /* Header */
+  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 46px; height: 46px; border-radius: 14px; flex: none;
+    background: conic-gradient(from 210deg, var(--sun-1), var(--sun-2), var(--indigo), var(--sun-1));
+    box-shadow: 0 8px 22px rgba(239, 68, 68, 0.35);
+    position: relative;
+  }
+  .logo::after {
+    content: ""; position: absolute; inset: 12px; border-radius: 50%;
+    background: var(--panel-solid);
+  }
+  .brand h1 { font-size: 20px; margin: 0; letter-spacing: -0.3px; }
+  .brand p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+  .spacer { flex: 1; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 600;
+    background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(8px);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px rgba(5,150,105,.15); }
+  .pulse { animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border);
+    background: var(--panel); cursor: pointer; font-size: 17px; color: var(--text);
+  }
+  .icon-btn:hover { border-color: var(--indigo); }
+
+  /* Hero */
+  .hero {
+    margin-top: 22px; padding: 22px; border-radius: 20px;
+    background: var(--panel); border: 1px solid var(--border);
+    box-shadow: var(--shadow); backdrop-filter: blur(12px);
+    display: grid; grid-template-columns: 1.15fr 1fr; gap: 22px;
+  }
+  .hero h2 { margin: 2px 0 6px; font-size: 17px; }
+  .hero .lead { color: var(--muted); font-size: 13.5px; line-height: 1.6; margin: 0 0 16px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px;
+    background: rgba(79,70,229,.10); color: var(--indigo); }
+  [data-theme="dark"] .tag { background: rgba(120,130,255,.16); color: #b9c0ff; }
+
+  /* Architecture mini-diagram */
+  .diagram { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 16px; border-radius: 16px; background: var(--panel-solid); border: 1px solid var(--border); }
+  .node { text-align: center; font-size: 11px; color: var(--muted); flex: none; }
+  .node .box {
+    width: 66px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; margin: 0 auto 6px; border: 1px solid var(--border); background: var(--panel);
+  }
+  .pods { display: flex; flex-direction: column; gap: 6px; }
+  .pod { width: 66px; height: 20px; border-radius: 7px; display:flex; align-items:center; justify-content:center;
+    font-size: 10px; font-weight: 700; color: #fff;
+    background: linear-gradient(120deg, var(--sun-1), var(--sun-2)); }
+  .pod.zero { background: repeating-linear-gradient(45deg,#c7cde0,#c7cde0 5px,#dbe0ee 5px,#dbe0ee 10px); color: var(--muted); }
+  .flow { flex: 1; height: 2px; background: linear-gradient(90deg, var(--indigo), var(--teal)); position: relative; opacity:.6; }
+  .flow::after { content:"›"; position:absolute; right:-4px; top:-12px; color: var(--teal); font-size: 20px; }
+
+  /* Stat tiles */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+  .stat { padding: 14px 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border);
+    box-shadow: var(--shadow); backdrop-filter: blur(10px); }
+  .stat .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .stat .v { font-size: 22px; font-weight: 800; margin-top: 4px; letter-spacing: -.5px; }
+  .stat .v small { font-size: 12px; font-weight: 600; color: var(--muted); }
+
+  /* Layout */
+  .grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 20px; margin-top: 22px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 20px;
+    box-shadow: var(--shadow); backdrop-filter: blur(12px); }
+  .card h3 { margin: 0; padding: 16px 18px; font-size: 14px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px; }
+  .card h3 .badge { margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600; }
+  .card-body { padding: 14px 16px; }
+
+  /* Tool list */
+  .tool { width: 100%; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 12px;
+    padding: 12px 13px; border-radius: 14px; border: 1px solid transparent; background: transparent; color: var(--text);
+    margin-bottom: 6px; transition: .15s; }
+  .tool:hover { background: var(--panel-solid); border-color: var(--border); }
+  .tool.active { border-color: var(--indigo); background: var(--panel-solid); }
+  .tool .ic { width: 38px; height: 38px; border-radius: 11px; flex: none; display: flex; align-items: center;
+    justify-content: center; font-size: 18px; background: rgba(14,165,164,.12); }
+  .tool .t { font-weight: 700; font-size: 13.5px; }
+  .tool .d { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .tool code { font-size: 11px; color: var(--indigo); }
+
+  /* Form */
+  label { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin: 10px 0 5px; }
+  input {
+    width: 100%; padding: 10px 12px; border-radius: 11px; border: 1px solid var(--border);
+    background: var(--panel-solid); color: var(--text); font-size: 13.5px; font-family: inherit;
+  }
+  input:focus { outline: none; border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+  .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  button.primary, button.ghost {
+    border: none; cursor: pointer; font-weight: 700; font-size: 13px; padding: 11px 16px; border-radius: 12px;
+    font-family: inherit;
+  }
+  button.primary { color: #fff; background: linear-gradient(120deg, var(--sun-1), var(--sun-2)); box-shadow: 0 8px 20px rgba(239,68,68,.30); }
+  button.ghost { background: var(--panel-solid); color: var(--text); border: 1px solid var(--border); }
+  button:hover { filter: brightness(1.04); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Result */
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px; }
+  .pill { font-size: 11.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px;
+    background: var(--panel-solid); border: 1px solid var(--border); display: inline-flex; gap: 6px; align-items: center; }
+  .pill.ok { color: var(--ok); } .pill.err { color: var(--err); }
+  pre { margin: 0; background: var(--code-bg); color: #e6ebff; border-radius: 14px; padding: 15px 16px;
+    font-size: 12.5px; line-height: 1.55; overflow: auto; max-height: 340px;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, monospace; }
+  .k-key { color: #7dd3fc; } .k-str { color: #86efac; } .k-num { color: #fca5a5; }
+  .k-bool { color: #fbbf24; } .k-null { color: #94a3b8; }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 30px 10px; }
+
+  /* Burst rows */
+  .burst { margin-top: 12px; display: none; }
+  .burst.show { display: block; }
+  .brow { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 7px 10px; border-radius: 10px;
+    background: var(--panel-solid); border: 1px solid var(--border); margin-bottom: 6px; }
+  .brow .n { font-weight: 800; color: var(--indigo); width: 20px; }
+  .brow .id { font-family: monospace; font-weight: 700; }
+  .brow .lat { margin-left: auto; color: var(--muted); }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 34px; }
+  footer a { color: var(--indigo); text-decoration: none; }
+
+  @media (max-width: 900px) {
+    .hero, .grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>Helios Control Tower</h1>
+        <p>Stateless MCP Server · Quarkus · Cloud-Native Java</p>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="chip"><span class="dot pulse"></span> <span id="transport">connecting…</span></div>
+    <div class="chip" id="instanceChip" title="The instance currently serving your requests">⬡ <span id="instanceId">—</span></div>
+    <button class="icon-btn" id="themeToggle" title="Toggle theme">◐</button>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h2>From session-heavy to stateless, at scale</h2>
+      <p class="lead">
+        Helios Logistics runs a fleet of tiny, single-purpose MCP tool servers instead of one
+        stateful monolith. Each request over <strong>Streamable HTTP</strong> is fully independent —
+        no session affinity — so the platform load-balances trivially and <strong>scales to zero</strong>
+        when the tools are idle. Built on Quarkus for instant startup and a tiny memory footprint.
+      </p>
+      <div class="tags">
+        <span class="tag">Stateless HTTP</span>
+        <span class="tag">Scale to Zero</span>
+        <span class="tag">AOT / Native-ready</span>
+        <span class="tag">Database-lookup tools</span>
+        <span class="tag">Zero session state</span>
+      </div>
+    </div>
+    <div class="diagram" title="AI agent → load balancer → stateless replicas → backends">
+      <div class="node"><div class="box">🤖</div>AI Agent</div>
+      <div class="flow"></div>
+      <div class="node"><div class="box">⚖️</div>Load<br>Balancer</div>
+      <div class="flow"></div>
+      <div class="node">
+        <div class="pods">
+          <div class="pod">pod</div><div class="pod">pod</div><div class="pod zero">0</div>
+        </div>
+        <div style="margin-top:6px">Stateless<br>replicas</div>
+      </div>
+      <div class="flow"></div>
+      <div class="node"><div class="box">🗄️</div>Backends</div>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Serving Instance</div><div class="v" id="stInstance">—</div></div>
+    <div class="stat"><div class="k">Instance Uptime</div><div class="v" id="stUptime">—</div></div>
+    <div class="stat"><div class="k">MCP Tools</div><div class="v" id="stTools">—</div></div>
+    <div class="stat"><div class="k">Session State</div><div class="v" style="color:var(--ok)">0<small> bytes</small></div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>🧰 Tool Catalog <span class="badge" id="catBadge"></span></h3>
+      <div class="card-body" id="toolList"><div class="empty">Loading tools…</div></div>
+    </div>
+
+    <div class="card">
+      <h3>▶️ Invoke <span class="badge">stateless request</span></h3>
+      <div class="card-body" id="invokePanel">
+        <div class="empty">Select a tool on the left to run a stateless MCP call.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    Helios Logistics is a fictional enterprise for the talk
+    <em>“Going Stateless: Scaling MCP Servers to Cloud-Native Java &amp; HTTP.”</em><br>
+    MCP endpoint: <code>/mcp</code> · Health: <code>/q/health</code> · Built with
+    <a href="https://quarkus.io" target="_blank" rel="noopener">Quarkus</a>.
+  </footer>
+</div>
+
+<script>
+  const $ = (s) => document.querySelector(s);
+  let catalog = [];
+  let selected = null;
+
+  // ---- theme ----
+  const savedTheme = localStorage.getItem("helios-theme");
+  if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
+  $("#themeToggle").addEventListener("click", () => {
+    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("helios-theme", next);
+  });
+
+  // ---- JSON syntax highlight ----
+  function hl(obj) {
+    const json = JSON.stringify(obj, null, 2);
+    return json.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+        (m) => {
+          let cls = "k-num";
+          if (/^"/.test(m)) cls = /:$/.test(m) ? "k-key" : "k-str";
+          else if (/true|false/.test(m)) cls = "k-bool";
+          else if (/null/.test(m)) cls = "k-null";
+          return `<span class="${cls}">${m}</span>`;
+        });
+  }
+
+  function fmtUptime(ms) {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return s + "s";
+    const m = Math.floor(s / 60), r = s % 60;
+    return m + "m " + r + "s";
+  }
+
+  // ---- load instance + catalog ----
+  async function loadInstance() {
+    try {
+      const r = await fetch("api/instance");
+      const d = await r.json();
+      $("#transport").textContent = d.transport;
+      $("#instanceId").textContent = d.instanceId;
+      $("#stInstance").textContent = d.instanceId.replace("helios-", "");
+      $("#stUptime").textContent = fmtUptime(d.uptimeMs);
+    } catch (e) {
+      $("#transport").textContent = "server unreachable";
+    }
+  }
+
+  async function loadCatalog() {
+    const r = await fetch("api/catalog");
+    catalog = await r.json();
+    $("#stTools").textContent = catalog.length;
+    $("#catBadge").textContent = catalog.length + " tools";
+    const icons = ["📦", "🏬", "✈️", "📊", "⚠️"];
+    $("#toolList").innerHTML = catalog.map((t, i) => `
+      <button class="tool" data-name="${t.name}">
+        <div class="ic">${icons[i % icons.length]}</div>
+        <div>
+          <div class="t">${t.title}</div>
+          <div class="d">${t.description}</div>
+          <code>${t.name}()</code>
+        </div>
+      </button>`).join("");
+    document.querySelectorAll(".tool").forEach((el) =>
+      el.addEventListener("click", () => select(el.dataset.name)));
+  }
+
+  function select(name) {
+    selected = catalog.find((t) => t.name === name);
+    document.querySelectorAll(".tool").forEach((el) =>
+      el.classList.toggle("active", el.dataset.name === name));
+    const fields = selected.params.map((p) => `
+      <label>${p.name} ${p.required ? '<span style="color:var(--err)">*</span>' : ""}</label>
+      <input data-arg="${p.name}" value="${selected.sampleArgs[p.name] ?? ""}" placeholder="${p.example}" />
+    `).join("");
+    $("#invokePanel").innerHTML = `
+      <div style="font-weight:700;font-size:13.5px">${selected.title}
+        <code style="color:var(--indigo);font-size:11.5px">${selected.name}()</code></div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px">${selected.description}</div>
+      ${fields}
+      <div class="btn-row">
+        <button class="primary" id="runBtn">Run tool</button>
+        <button class="ghost" id="burstBtn" title="Fire 5 independent requests to show there is no session affinity">Run 5× (statelessness)</button>
+      </div>
+      <div id="result"></div>
+      <div class="burst" id="burst"></div>`;
+    $("#runBtn").addEventListener("click", run);
+    $("#burstBtn").addEventListener("click", burst);
+  }
+
+  function collectArgs() {
+    const args = {};
+    document.querySelectorAll("[data-arg]").forEach((el) => (args[el.dataset.arg] = el.value));
+    return args;
+  }
+
+  async function callTool(args) {
+    const start = performance.now();
+    const r = await fetch("api/invoke/" + selected.name, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+    });
+    const clientMs = Math.round(performance.now() - start);
+    const body = await r.json();
+    return { ok: r.ok, body, clientMs };
+  }
+
+  async function run() {
+    const btn = $("#runBtn"); btn.disabled = true; btn.textContent = "Running…";
+    $("#burst").classList.remove("show");
+    const args = collectArgs();
+    try {
+      const { ok, body, clientMs } = await callTool(args);
+      if (!ok) {
+        $("#result").innerHTML = `
+          <div class="meta"><span class="pill err">✕ ${body.error || "Request failed"}</span></div>
+          <div style="font-size:12px;color:var(--muted)">Validation runs on the server before any lookup — a stateless request in, a clean error out.</div>`;
+      } else {
+        $("#result").innerHTML = `
+          <div class="meta">
+            <span class="pill ok">✓ 200 OK</span>
+            <span class="pill">⬡ served by ${body.servedByInstance}</span>
+            <span class="pill">⏱ ${body.latencyMs} ms server · ${clientMs} ms round-trip</span>
+          </div>
+          <pre>${hl(body.result)}</pre>`;
+      }
+    } catch (e) {
+      $("#result").innerHTML = `<div class="meta"><span class="pill err">✕ ${e}</span></div>`;
+    } finally {
+      btn.disabled = false; btn.textContent = "Run tool";
+    }
+  }
+
+  async function burst() {
+    const args = collectArgs();
+    const box = $("#burst");
+    box.classList.add("show");
+    box.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">
+      5 independent requests — no session, no ordering. With multiple replicas behind the load
+      balancer, the serving instance can differ each time; the result never does.</div>`;
+    for (let i = 1; i <= 5; i++) {
+      try {
+        const { ok, body } = await callTool(args);
+        const id = ok ? body.servedByInstance : "error";
+        const lat = ok ? body.latencyMs + " ms" : (body.error || "failed");
+        box.insertAdjacentHTML("beforeend",
+          `<div class="brow"><span class="n">#${i}</span><span class="id">⬡ ${id}</span><span class="lat">${lat}</span></div>`);
+      } catch (e) {
+        box.insertAdjacentHTML("beforeend", `<div class="brow"><span class="n">#${i}</span><span>error</span></div>`);
+      }
+    }
+  }
+
+  loadInstance();
+  loadCatalog();
+  setInterval(loadInstance, 5000);
+</script>
+</body>
+</html>
