@@ -5,12 +5,14 @@
 # cold start nearly invisible (tens of milliseconds), so scale-to-zero is
 # practical for the long tail of specialized MCP tool servers.
 #
-# Prereqs: OpenShift Serverless / Knative Serving installed, the app image
-# pushed (e.g. by `mvn clean package -Dnative -Dquarkus.openshift.deploy=true`,
-# then reference that image below), and the helios-db Secret + Postgres applied.
-#
-#   kubectl apply -f k8s/postgres.yaml
-#   kubectl apply -f k8s/knative-service.yaml
+# Prereqs:
+#   1. Install OpenShift Serverless + Knative Serving first:  ./install-serverless.sh
+#      (or apply k8s/serverless-operator.yaml then k8s/knative-serving.yaml)
+#   2. Push the app image (e.g. `mvn clean package -Dnative -Dquarkus.openshift.deploy=true`,
+#      then reference that image below).
+#   3. Apply the shared database, then this Service:
+#        oc apply -f k8s/postgres.yaml
+#        oc apply -f k8s/knative-service.yaml
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:

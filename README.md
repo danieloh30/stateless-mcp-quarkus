@@ -108,11 +108,19 @@ Datasource comes from the `helios-db` Secret — no secrets in the image. Manife
 module's `target/kubernetes/`.
 
 **Scale to zero with Knative** (OpenShift Serverless) — the ultimate stateless payoff. A native
-image cold-starts in tens of milliseconds, so running zero replicas when idle is practical:
+image cold-starts in tens of milliseconds, so running zero replicas when idle is practical.
+
+First install the Serverless operator + Knative Serving (once, needs cluster-admin):
+
+```bash
+./install-serverless.sh                 # applies k8s/serverless-operator.yaml + k8s/knative-serving.yaml
+```
+
+Then run the MCP fleet as a scale-to-zero Knative Service:
 
 ```bash
 oc apply -f k8s/postgres.yaml
-oc apply -f k8s/knative-service.yaml   # stateless MCP servers, minScale: 0
+oc apply -f k8s/knative-service.yaml     # stateless MCP servers, minScale: 0
 ```
 
 > Demo flow for the talk: **dev (2 processes) → local cluster (`./start-cluster.sh`, 5 replicas
@@ -151,8 +159,13 @@ stateless-mcp-quarkus/               (parent / aggregator pom)
 │   └── src/main/docker/Dockerfile.jvm
 ├── compose.yml                      # postgres + 5 mcp replicas + nginx LB + agent
 ├── compose/ (init.sql, nginx.conf)
-├── k8s/ (postgres.yaml, knative-service.yaml)
-├── start-cluster.sh / stop-cluster.sh / deploy-openshift.sh
+├── k8s/
+│   ├── postgres.yaml               # shared Postgres (Secret + Deployment + Service)
+│   ├── serverless-operator.yaml    # OpenShift Serverless operator (OLM)
+│   ├── knative-serving.yaml        # KnativeServing CR (enables scale-to-zero)
+│   └── knative-service.yaml        # the MCP fleet as a scale-to-zero Knative Service
+├── start-cluster.sh / stop-cluster.sh
+├── install-serverless.sh / deploy-openshift.sh
 └── .github/                         # Dependabot + build-gated auto-merge
 ```
 
