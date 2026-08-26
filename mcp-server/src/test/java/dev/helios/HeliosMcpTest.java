@@ -5,9 +5,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import io.quarkiverse.mcp.server.ToolCallException;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -59,17 +59,18 @@ class HeliosMcpTest {
     }
 
     @Test
-    void malformedArgumentIsRejected() {
+    void malformedArgumentReturnsAFriendlyReason() {
+        // Validation is a real server-side boundary, and the reason reaches the client
+        // (not a generic "internal error").
         String body = post("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":"
                 + "{\"name\":\"getShipmentStatus\",\"arguments\":{\"trackingId\":\"BAD\"}}}");
-        assertThat(body, containsString("error"));
+        assertThat(body, containsString("HLX-XXXXXXXX"));
     }
 
     @Test
-    void toolArgValidationRejectsMalformedTrackingId() {
-        // The @Pattern on the MCP tool argument is a real, enforced boundary:
-        // Quarkus applies Bean Validation to CDI bean methods automatically.
-        assertThrows(ConstraintViolationException.class,
+    void invalidInputRaisesToolCallExceptionWithReason() {
+        ToolCallException ex = assertThrows(ToolCallException.class,
                 () -> tools.getShipmentStatus("not-a-tracking-id"));
+        assertThat(ex.getMessage(), containsString("HLX-XXXXXXXX"));
     }
 }
