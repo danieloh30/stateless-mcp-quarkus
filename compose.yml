@@ -1,0 +1,55 @@
+# Cluster demo: five identical STATELESS Quarkus MCP replicas behind an nginx
+# load balancer, all sharing ONE PostgreSQL. Because the servers keep no session
+# state, requests round-robin freely across replicas — the console shows a
+# different serving instance per request, with identical results.
+#
+#   ./start-cluster.sh        # build + launch
+#   open http://localhost:8080
+#   ./stop-cluster.sh         # tear down
+
+x-app: &app
+  image: ${HELIOS_IMAGE:-helios-mcp:latest}
+  environment: &app-env
+    QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://postgres:5432/helios
+    QUARKUS_DATASOURCE_USERNAME: helios
+    QUARKUS_DATASOURCE_PASSWORD: helios
+    QUARKUS_HTTP_PORT: "8080"
+  depends_on:
+    postgres:
+      condition: service_healthy
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: helios
+      POSTGRES_USER: helios
+      POSTGRES_PASSWORD: helios
+    volumes:
+      - ./compose/init.sql:/docker-entrypoint-initdb.d/init.sql:ro,z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helios -d helios"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app1: { <<: *app }
+  app2: { <<: *app }
+  app3: { <<: *app }
+  app4: { <<: *app }
+  app5: { <<: *app }
+
+  lb:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./compose/nginx.conf:/etc/nginx/nginx.conf:ro,z
+    ports:
+      - "8080:8080"
+    depends_on:
+      - app1
+      - app2
+      - app3
+      - app4
+      - app5
+    restart: unless-stopped

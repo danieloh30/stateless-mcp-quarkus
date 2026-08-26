@@ -404,8 +404,10 @@
     const box = $("#burst");
     box.classList.add("show");
     box.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">
-      5 independent requests — no session, no ordering. With multiple replicas behind the load
-      balancer, the serving instance can differ each time; the result never does.</div>`;
+      5 independent requests — no session, no ordering. Running the cluster
+      (<code>./start-cluster.sh</code>) puts 5 replicas behind the load balancer, so the serving
+      instance rotates below while the result never changes. In single dev mode you'll see one
+      instance — same guarantee, one replica.</div>`;
     for (let i = 1; i <= 5; i++) {
       try {
         const { ok, body } = await callTool(args);

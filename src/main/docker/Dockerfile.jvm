@@ -1,0 +1,16 @@
+# JVM image for the stateless MCP server.
+# Build the app first:  mvn clean package -DskipTests
+# Then build the image:  podman build -t helios-mcp:latest -f src/main/docker/Dockerfile.jvm .
+FROM eclipse-temurin:25-jre
+
+WORKDIR /work
+
+# Quarkus "fast-jar" layout — copy least-changing layers first for better caching.
+COPY --chmod=0755 target/quarkus-app/lib/ /work/lib/
+COPY --chmod=0755 target/quarkus-app/*.jar /work/
+COPY --chmod=0755 target/quarkus-app/app/ /work/app/
+COPY --chmod=0755 target/quarkus-app/quarkus/ /work/quarkus/
+
+EXPOSE 8080
+ENV LANG=C.UTF-8
+ENTRYPOINT ["java", "-jar", "/work/quarkus-run.jar"]
