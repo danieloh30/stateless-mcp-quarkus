@@ -24,7 +24,8 @@ public interface ShipmentAgent {
             metrics. If a tool reports a validation error or no result, say so plainly.
             """)
     @UserMessage("{{request}}")
-    @Agent(description = "Handles shipment tracking, delivery/lane estimates, and carrier SLA questions",
+    @Agent(name = "shipmentAgent",
+            description = "Handles shipment tracking, delivery/lane estimates, and carrier SLA questions",
             outputKey = "shipmentAnswer")
     @ToolBox(ShipmentToolbox.class)
     String handle(@V("request") String request);

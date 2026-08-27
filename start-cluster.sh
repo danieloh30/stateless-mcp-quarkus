@@ -18,7 +18,7 @@ fi
 echo "==> Using $ENGINE"
 
 echo "==> Building both apps (fast-jar)"
-mvn -q clean package -DskipTests
+./mvnw -q clean package -DskipTests
 
 echo "==> Building images"
 "$ENGINE" build -t helios-mcp:latest   -f mcp-server/src/main/docker/Dockerfile.jvm mcp-server

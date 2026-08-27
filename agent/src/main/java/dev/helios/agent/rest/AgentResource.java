@@ -3,6 +3,7 @@ package dev.helios.agent.rest;
 import java.util.List;
 import java.util.Map;
 
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
@@ -28,6 +29,8 @@ import jakarta.ws.rs.core.MediaType;
 @Path("/agent")
 @Produces(MediaType.APPLICATION_JSON)
 public class AgentResource {
+
+    private static final Logger LOG = Logger.getLogger(AgentResource.class);
 
     @Inject
     AgentService agent;
@@ -70,7 +73,17 @@ public class AgentResource {
 
     @ServerExceptionMapper
     public RestResponse<Map<String, String>> mapError(RuntimeException e) {
-        String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-        return RestResponse.status(RestResponse.Status.BAD_REQUEST, Map.of("error", msg));
+        LOG.error("Agent request failed", e);
+        return RestResponse.status(RestResponse.Status.BAD_REQUEST, Map.of("error", rootMessage(e)));
+    }
+
+    /** Unwrap wrapper exceptions so the client sees the actual reason, not "Failed to invoke...". */
+    private static String rootMessage(Throwable e) {
+        Throwable root = e;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        String msg = root.getMessage();
+        return msg != null && !msg.isBlank() ? msg : root.getClass().getSimpleName();
     }
 }

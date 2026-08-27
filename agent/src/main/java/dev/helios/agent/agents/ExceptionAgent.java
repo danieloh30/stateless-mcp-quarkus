@@ -19,7 +19,8 @@ public interface ExceptionAgent {
             exceptions tool for live data. Summarize what needs action; never invent incidents.
             """)
     @UserMessage("{{request}}")
-    @Agent(description = "Handles open shipment exceptions / incidents needing operator attention in a region",
+    @Agent(name = "exceptionAgent",
+            description = "Handles open shipment exceptions / incidents needing operator attention in a region",
             outputKey = "exceptionAnswer")
     @ToolBox(ExceptionToolbox.class)
     String handle(@V("request") String request);
