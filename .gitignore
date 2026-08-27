@@ -1,8 +1,7 @@
 target/
 build/
-.mvn/
-!.mvn/wrapper/maven-wrapper.jar
 *.class
+# Keep the Maven wrapper (.mvn/wrapper/) tracked so ./mvnw works out of the box.
 
 # IDEs
 .idea/

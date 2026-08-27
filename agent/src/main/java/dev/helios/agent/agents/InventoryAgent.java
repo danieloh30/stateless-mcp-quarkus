@@ -19,7 +19,8 @@ public interface InventoryAgent {
             fetch live numbers — never guess. If the SKU is invalid or missing, say so plainly.
             """)
     @UserMessage("{{request}}")
-    @Agent(description = "Handles warehouse inventory / stock-level questions for a SKU",
+    @Agent(name = "inventoryAgent",
+            description = "Handles warehouse inventory / stock-level questions for a SKU",
             outputKey = "inventoryAnswer")
     @ToolBox(InventoryToolbox.class)
     String handle(@V("request") String request);

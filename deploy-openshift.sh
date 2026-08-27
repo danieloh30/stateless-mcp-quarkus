@@ -27,9 +27,9 @@ oc rollout status deploy/helios-postgres --timeout=180s
 
 echo "==> Building and deploying both apps ($MODE) via quarkus-openshift"
 if [ "$MODE" = "jvm" ]; then
-  mvn -q clean package -DskipTests -Dquarkus.openshift.deploy=true
+  ./mvnw -q clean package -DskipTests -Dquarkus.openshift.deploy=true
 else
-  mvn -q clean package -DskipTests -Dnative -Dquarkus.native.container-build=true \
+  ./mvnw -q clean package -DskipTests -Dnative -Dquarkus.native.container-build=true \
     -Dquarkus.openshift.deploy=true
 fi
 

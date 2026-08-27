@@ -145,7 +145,8 @@ lives alongside it for the statelessness demo.
 
 ## Run it — dev mode (two processes)
 
-Prerequisites: **Java 25+**, **Maven 3.9+**, **Docker** or **Podman** (for the database), and an
+Prerequisites: **Java 25+**, **Maven 3.9+** (or just use the bundled **`./mvnw`** wrapper),
+**Docker** or **Podman** (for the database), and an
 **`OPENAI_API_KEY`** (the agent's supervisor + sub-agents call OpenAI). The model defaults to
 `gpt-5.6-sol` and is overridable with **`HELIOS_LLM_MODEL`** (a mini model works fine too).
 
@@ -160,11 +161,11 @@ Run both commands **from the repo root** (the `-pl` module paths resolve against
 ```bash
 # Terminal 1 — the MCP server. Dev Services auto-starts a throwaway PostgreSQL
 # (seeded from import.sql) and serves MCP on :8080.
-mvn -pl mcp-server quarkus:dev
+./mvnw -pl mcp-server quarkus:dev
 
 # Terminal 2 — the agent (console + supervisor/sub-agents) on :8090, pointing at :8080.
 # Reads OPENAI_API_KEY from your shell.
-mvn -pl agent quarkus:dev
+./mvnw -pl agent quarkus:dev
 ```
 
 Open the console at **<http://localhost:8090/>**. In dev there is one MCP server, so “Run 5×” shows
@@ -186,8 +187,8 @@ open http://localhost:8080
 ## Package & native
 
 ```bash
-mvn clean package                    # builds both modules
-mvn clean package -Dnative           # GraalVM native — instant start, tiny memory
+./mvnw clean package                 # builds both modules
+./mvnw clean package -Dnative        # GraalVM native — instant start, tiny memory
 ```
 
 ## Deploy to OpenShift / Kubernetes (native + scale-to-zero)
