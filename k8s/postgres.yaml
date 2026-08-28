@@ -40,6 +40,12 @@ spec:
           envFrom:
             - secretRef:
                 name: helios-db
+          # OpenShift's restricted SCC assigns an arbitrary UID. Keep this demo's
+          # ephemeral database in the image's world-writable /tmp so initdb can
+          # create and chmod PGDATA without requiring a fixed UID or privileged SCC.
+          env:
+            - name: PGDATA
+              value: /tmp/pgdata
           ports:
             - containerPort: 5432
           readinessProbe:
@@ -50,14 +56,10 @@ spec:
           volumeMounts:
             - name: initdb
               mountPath: /docker-entrypoint-initdb.d
-            - name: data
-              mountPath: /var/lib/postgresql/data
       volumes:
         - name: initdb
           configMap:
             name: helios-initdb
-        - name: data
-          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
