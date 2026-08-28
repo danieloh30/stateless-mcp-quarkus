@@ -223,6 +223,7 @@
 <script>
   const $ = (s) => document.querySelector(s);
   let tools = [], selected = null;
+  let burstEnabled = false;
   const observedReplicas = new Set();
 
   // Friendly labels/icons + example args for each tool.
@@ -308,6 +309,15 @@
     }
   }
 
+  async function loadRuntime() {
+    try {
+      const runtime = await getJson("agent/runtime");
+      burstEnabled = runtime.burstEnabled === true;
+    } catch (e) {
+      burstEnabled = false;
+    }
+  }
+
   function select(name) {
     selected = tools.find((t) => t.name === name);
     const m = META[name] || { title: name, sample: {} };
@@ -325,12 +335,12 @@
       ${fields}
       <div class="btn-row">
         <button class="primary" id="runBtn">Run tool</button>
-        <button class="ghost" id="burstBtn" title="Fire 5 requests to show they hit different replicas">Run 5× (statelessness)</button>
+        ${burstEnabled ? `<button class="ghost" id="burstBtn" title="Fire 5 requests to show they hit different replicas">Run 5× (statelessness)</button>` : ""}
       </div>
       <div id="result"></div>
       <div class="burst" id="burst"></div>`;
     $("#runBtn").addEventListener("click", run);
-    $("#burstBtn").addEventListener("click", burst);
+    if (burstEnabled) $("#burstBtn").addEventListener("click", burst);
   }
 
   function collectArgs() {
@@ -422,9 +432,14 @@
   document.querySelectorAll("#askExamples .tag").forEach((el) =>
     el.addEventListener("click", () => { $("#askInput").value = el.textContent.trim(); ask(); }));
 
-  loadCatalog();
-  refreshInstance();
-  setInterval(refreshInstance, 5000);
+  async function initialize() {
+    await loadRuntime();
+    await loadCatalog();
+    refreshInstance();
+    setInterval(refreshInstance, 3000);
+  }
+
+  initialize();
 </script>
 </body>
 </html>

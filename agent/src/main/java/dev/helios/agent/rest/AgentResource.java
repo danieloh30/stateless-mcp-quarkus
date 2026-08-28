@@ -12,6 +12,7 @@ import dev.helios.agent.dto.AskRequest;
 import dev.helios.agent.dto.AskResult;
 import dev.helios.agent.dto.InvokeResult;
 import dev.helios.agent.service.AgentService;
+import io.quarkus.runtime.LaunchMode;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -54,6 +55,13 @@ public class AgentResource {
     @Path("instance")
     public Object instance() {
         return agent.serverInstance();
+    }
+
+    /** UI capabilities vary between single-server dev mode and packaged deployments. */
+    @GET
+    @Path("runtime")
+    public Map<String, Boolean> runtime() {
+        return Map.of("burstEnabled", LaunchMode.current() != LaunchMode.DEVELOPMENT);
     }
 
     /**
