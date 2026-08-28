@@ -70,7 +70,7 @@
     100% { transform: scale(1); box-shadow: 0 0 0 8px rgba(14,165,164,0); } }
   .flow { flex: 1; height: 2px; min-width: 12px; background: linear-gradient(90deg, var(--indigo), var(--teal)); position: relative; opacity:.6; }
   .flow::after { content:"›"; position:absolute; right:-4px; top:-12px; color: var(--teal); font-size: 20px; }
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
   .stat { padding: 14px 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border);
     box-shadow: var(--shadow); backdrop-filter: blur(10px); }
   .stat .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
@@ -176,7 +176,6 @@
     <div class="stat"><div class="k">Serving Replica</div><div class="v" id="stInstance">—</div></div>
     <div class="stat"><div class="k">Replica Uptime</div><div class="v" id="stUptime">—</div></div>
     <div class="stat"><div class="k">MCP Tools</div><div class="v" id="stTools">—</div></div>
-    <div class="stat"><div class="k">MCP Session</div><div class="v" style="color:var(--ok)">None<small> server-side</small></div></div>
   </div>
 
   <div class="card" style="margin-top:22px">
