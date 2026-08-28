@@ -226,7 +226,8 @@ Knative Serving, waiting until both are ready:
 ### Step 3 — Build native images and deploy the apps + database
 
 ```bash
-./deploy-openshift.sh     # native images; or: ./deploy-openshift.sh jvm  (faster build)
+./deploy-openshift.sh          # JVM images (portable default)
+./deploy-openshift.sh native   # optional: requires a matching native-build environment
 ```
 
 This applies the shared PostgreSQL (`k8s/postgres.yaml`) and deploys both modules. Generated
