@@ -228,6 +228,7 @@
   let burstEnabled = false;
   let scaleToZero = false;
   let readyReplicas = null;
+  let displayedBurstCount = null;
   const observedReplicas = new Set();
 
   // Friendly labels/icons + example args for each tool.
@@ -329,6 +330,15 @@
         : `${readyReplicas} ready replica${readyReplicas === 1 ? "" : "s"}`;
       const burstBtn = $("#burstBtn");
       if (burstBtn && !burstBtn.disabled) burstBtn.textContent = burstButtonLabel();
+      const currentCount = burstRequestCount();
+      if (displayedBurstCount !== null && displayedBurstCount !== currentCount) {
+        const burstBox = $("#burst");
+        if (burstBox) {
+          burstBox.classList.remove("show");
+          burstBox.innerHTML = "";
+        }
+        displayedBurstCount = null;
+      }
     } catch (e) {
       burstEnabled = false;
     }
@@ -392,6 +402,7 @@
     const btn = $("#burstBtn");
     const box = $("#burst");
     const count = burstRequestCount();
+    displayedBurstCount = count;
     btn.disabled = true;
     btn.textContent = `Running 0/${count}…`;
     observedReplicas.clear();
