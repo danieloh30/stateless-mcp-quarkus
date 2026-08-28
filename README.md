@@ -160,8 +160,8 @@ Run both commands **from the repo root** (the `-pl` module paths resolve against
 
 ```bash
 # Terminal 1 — the MCP server. Dev Services auto-starts a throwaway PostgreSQL
-# (seeded from import.sql) and serves MCP on :8080.
-./mvnw -pl mcp-server quarkus:dev
+# (seeded from import.sql) and serves MCP on :8080. Basic console mode avoids terminal hangs.
+./mvnw -pl mcp-server -Dquarkus.console.basic=true quarkus:dev
 
 # Terminal 2 — the agent (console + supervisor/sub-agents) on :8090, pointing at :8080.
 # Reads OPENAI_API_KEY from your shell. Basic console mode avoids terminal cursor-detection hangs.
