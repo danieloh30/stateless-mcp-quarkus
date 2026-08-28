@@ -155,17 +155,19 @@ export OPENAI_API_KEY=sk-...          # required for the "Ask the Agent" flow
 export HELIOS_LLM_MODEL=gpt-5.6-sol   # optional — defaults to this
 ```
 
-Run both commands **from the repo root** (the `-pl` module paths resolve against the aggregator
-`pom.xml` there):
+Run each command **from its module directory**. Starting dev mode inside the module avoids terminal
+initialization issues seen when selecting the module from the repository root with `-pl`:
 
 ```bash
 # Terminal 1 — the MCP server. Dev Services auto-starts a throwaway PostgreSQL
-# (seeded from import.sql) and serves MCP on :8080. Basic console mode avoids terminal hangs.
-./mvnw -pl mcp-server -Dquarkus.console.basic=true quarkus:dev
+# (seeded from import.sql) and serves MCP on :8080.
+cd mcp-server
+../mvnw quarkus:dev
 
 # Terminal 2 — the agent (console + supervisor/sub-agents) on :8090, pointing at :8080.
-# Reads OPENAI_API_KEY from your shell. Basic console mode avoids terminal cursor-detection hangs.
-./mvnw -pl agent -Dquarkus.console.basic=true quarkus:dev
+# Open a second terminal at the repository root. Reads OPENAI_API_KEY from your shell.
+cd agent
+../mvnw quarkus:dev
 ```
 
 Open the console at **<http://localhost:8090/>**. In dev there is one MCP server, so “Run 5×” shows
