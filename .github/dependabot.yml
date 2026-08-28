@@ -5,6 +5,11 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    cooldown:
+      default-days: 3
+      exclude:
+        - "io.quarkus*"
+        - "io.quarkiverse.langchain4j*"
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
