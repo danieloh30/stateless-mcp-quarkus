@@ -268,7 +268,10 @@
         });
   }
   function fmtUptime(ms) { const s = Math.floor(ms / 1000); return s < 60 ? s + "s" : Math.floor(s/60) + "m " + (s%60) + "s"; }
-  function burstRequestCount() { return readyReplicas > 0 ? readyReplicas : 5; }
+  function burstRequestCount() {
+    if (scaleToZero) return Math.max(readyReplicas || 0, 1);
+    return readyReplicas > 0 ? readyReplicas : 5;
+  }
   function burstButtonLabel() { return `Run ${burstRequestCount()}× (statelessness)`; }
 
   function renderFleet(activeId) {
