@@ -12,6 +12,7 @@ updates:
       quarkus:
         patterns:
           - "io.quarkus*"
+          - "io.quarkiverse.langchain4j*"
       mcp-server:
         patterns:
           - "io.quarkiverse.mcp*"
