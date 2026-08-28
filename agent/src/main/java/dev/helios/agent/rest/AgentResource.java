@@ -1,5 +1,6 @@
 package dev.helios.agent.rest;
 
+import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
 
@@ -13,6 +14,7 @@ import dev.helios.agent.dto.AskResult;
 import dev.helios.agent.dto.InvokeResult;
 import dev.helios.agent.service.AgentService;
 import io.quarkus.runtime.LaunchMode;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -39,6 +41,9 @@ public class AgentResource {
     @Inject
     HeliosSupervisor supervisor;
 
+    @ConfigProperty(name = "helios.fleet.discovery-host", defaultValue = "")
+    String fleetDiscoveryHost;
+
     @GET
     @Path("catalog")
     public List<Map<String, Object>> catalog() {
@@ -60,8 +65,22 @@ public class AgentResource {
     /** UI capabilities vary between single-server dev mode and packaged deployments. */
     @GET
     @Path("runtime")
-    public Map<String, Boolean> runtime() {
-        return Map.of("burstEnabled", LaunchMode.current() != LaunchMode.DEVELOPMENT);
+    public Map<String, Object> runtime() {
+        return Map.of(
+                "burstEnabled", LaunchMode.current() != LaunchMode.DEVELOPMENT,
+                "readyReplicas", readyReplicas());
+    }
+
+    private int readyReplicas() {
+        if (fleetDiscoveryHost.isBlank()) {
+            return 1;
+        }
+        try {
+            return InetAddress.getAllByName(fleetDiscoveryHost).length;
+        } catch (Exception e) {
+            LOG.debugf("Could not resolve ready MCP replicas from %s: %s", fleetDiscoveryHost, e.getMessage());
+            return 0;
+        }
     }
 
     /**

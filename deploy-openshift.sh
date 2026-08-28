@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Deploy the full topology to OpenShift:
-#   agent (Route) → Service → 5 stateless MCP server replicas → shared PostgreSQL
-# The MCP servers are internal (ClusterIP Service does the round-robin); only the
-# agent is exposed via a Route.
+#   agent (Route) → nginx L7 proxy → 5 stateless MCP replicas → shared PostgreSQL
+# The proxy and MCP servers are internal; only the agent is exposed via a Route.
 #
 #   ./deploy-openshift.sh          # JVM images (portable default)
 #   ./deploy-openshift.sh native   # native images (requires a matching native-build environment)
@@ -73,6 +72,10 @@ if [ "$MODE" = "native" ]; then
   echo "==> Native mode requires the builder architecture to match the OpenShift worker architecture"
 fi
 deploy_module mcp-server stateless-mcp-quarkus
+echo "==> Applying the internal L7 proxy and ready-replica discovery Service"
+oc apply -f k8s/mcp-l7-proxy.yaml
+oc rollout restart deploy/stateless-mcp-l7
+oc rollout status deploy/stateless-mcp-l7 --timeout=180s
 deploy_module agent stateless-agent
 
 echo "==> Waiting for rollouts"

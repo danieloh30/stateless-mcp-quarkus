@@ -201,10 +201,12 @@ open http://localhost:8080
 
 ## Deploy to OpenShift / Kubernetes (native + scale-to-zero)
 
-The `quarkus-openshift` extension generates the manifests at build time. The **agent** gets a Route
-(external); the **MCP servers** stay internal behind a ClusterIP Service that round-robins across
-replicas — no nginx needed on the cluster. The agent finds the fleet at
-`http://stateless-mcp-quarkus/mcp` (override with `MCP_FLEET_URL`), and the datasource comes from
+The `quarkus-openshift` extension generates the application manifests at build time. The **agent**
+gets a Route (external); the **MCP servers** stay internal. An internal nginx L7 proxy makes
+per-request rotation visible even though an OpenShift Service normally balances per TCP connection.
+The SPA reports ready pods separately from replicas observed serving requests, using a headless
+discovery Service. The agent finds the proxy at `http://stateless-mcp-l7/mcp` (override with
+`MCP_FLEET_URL`), and the datasource comes from
 the `helios-db` Secret — no secrets in the image.
 
 ### Step 1 — Log in and pick a project

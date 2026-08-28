@@ -162,7 +162,10 @@
       <div class="flow"></div>
       <div class="node">
         <div class="pods" id="fleetPods"><div class="pod zero">—</div></div>
-        <div style="margin-top:6px">Stateless fleet<br><span id="fleetLabel">discovering…</span></div>
+        <div style="margin-top:6px">Stateless fleet<br>
+          <span id="fleetReadyLabel">discovering ready pods…</span><br>
+          <span id="fleetLabel">waiting for requests</span>
+        </div>
       </div>
       <div class="flow"></div>
       <div class="node"><div class="box">🗄️</div>Postgres</div>
@@ -224,6 +227,7 @@
   const $ = (s) => document.querySelector(s);
   let tools = [], selected = null;
   let burstEnabled = false;
+  let readyReplicas = null;
   const observedReplicas = new Set();
 
   // Friendly labels/icons + example args for each tool.
@@ -313,6 +317,10 @@
     try {
       const runtime = await getJson("agent/runtime");
       burstEnabled = runtime.burstEnabled === true;
+      readyReplicas = Number.isInteger(runtime.readyReplicas) ? runtime.readyReplicas : null;
+      $("#fleetReadyLabel").textContent = readyReplicas == null
+        ? "ready replicas unavailable"
+        : `${readyReplicas} ready replica${readyReplicas === 1 ? "" : "s"}`;
     } catch (e) {
       burstEnabled = false;
     }
@@ -335,7 +343,7 @@
       ${fields}
       <div class="btn-row">
         <button class="primary" id="runBtn">Run tool</button>
-        ${burstEnabled ? `<button class="ghost" id="burstBtn" title="Fire 5 requests to show they hit different replicas">Run 5× (statelessness)</button>` : ""}
+        ${burstEnabled ? `<button class="ghost" id="burstBtn" title="Fire 5 requests and observe which ready replicas serve them">Run 5× (statelessness)</button>` : ""}
       </div>
       <div id="result"></div>
       <div class="burst" id="burst"></div>`;
@@ -381,9 +389,9 @@
     renderFleet();
     box.classList.add("show");
     box.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">
-      5 independent requests through the agent's MCP client — no session, no ordering. Run the cluster
-      (<code>./start-cluster.sh</code>) and the serving replica rotates below; in single dev mode
-      you'll see one replica — same guarantee, one server.</div>`;
+      5 independent requests through the agent's MCP client — no session, no ordering. In cluster
+      deployments the L7 proxy creates a fresh upstream connection per request, so multiple ready
+      replicas can serve the burst; selection is load-balanced, not guaranteed to visit every pod.</div>`;
     try {
       for (let i = 1; i <= 5; i++) {
         const start = performance.now();
@@ -436,6 +444,7 @@
     await loadRuntime();
     await loadCatalog();
     refreshInstance();
+    setInterval(loadRuntime, 3000);
     setInterval(refreshInstance, 3000);
   }
 
