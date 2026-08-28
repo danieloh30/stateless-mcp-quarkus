@@ -1,6 +1,7 @@
 package dev.helios.agent.agents;
 
 import dev.langchain4j.agentic.declarative.SupervisorAgent;
+import dev.langchain4j.agentic.observability.MonitoredAgent;
 import dev.langchain4j.agentic.supervisor.SupervisorResponseStrategy;
 import dev.langchain4j.service.V;
 
@@ -12,7 +13,7 @@ import dev.langchain4j.service.V;
  * <p>Quarkus registers this interface as an {@code @ApplicationScoped} CDI bean; inject it
  * wherever the answer is needed (see {@link dev.helios.agent.rest.AgentResource}).
  */
-public interface HeliosSupervisor {
+public interface HeliosSupervisor extends MonitoredAgent {
 
     @SupervisorAgent(
             responseStrategy = SupervisorResponseStrategy.SUMMARY,
