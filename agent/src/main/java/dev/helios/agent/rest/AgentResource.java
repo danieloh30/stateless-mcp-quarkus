@@ -22,6 +22,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
 /**
@@ -44,6 +45,9 @@ public class AgentResource {
     @ConfigProperty(name = "helios.fleet.discovery-host", defaultValue = "")
     String fleetDiscoveryHost;
 
+    @ConfigProperty(name = "helios.fleet.scale-to-zero", defaultValue = "false")
+    boolean scaleToZero;
+
     @GET
     @Path("catalog")
     public List<Map<String, Object>> catalog() {
@@ -58,8 +62,13 @@ public class AgentResource {
 
     @GET
     @Path("instance")
-    public Object instance() {
-        return agent.serverInstance();
+    public RestResponse<Object> instance(@QueryParam("wake") boolean wake) {
+        // Old/open browser tabs may still poll this endpoint. Do not let passive
+        // UI traffic wake Knative; burst requests opt in explicitly.
+        if (scaleToZero && !wake) {
+            return RestResponse.noContent();
+        }
+        return RestResponse.ok(agent.serverInstance());
     }
 
     /** UI capabilities vary between single-server dev mode and packaged deployments. */
@@ -68,6 +77,7 @@ public class AgentResource {
     public Map<String, Object> runtime() {
         return Map.of(
                 "burstEnabled", LaunchMode.current() != LaunchMode.DEVELOPMENT,
+                "scaleToZero", scaleToZero,
                 "readyReplicas", readyReplicas());
     }
 

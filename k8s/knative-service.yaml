@@ -1,24 +1,24 @@
 # Knative Service — the payoff of a stateless MCP server: SCALE TO ZERO.
 #
 # With no session state, Knative can run zero replicas when the tools are idle
-# and spin new ones up on the first request. A Quarkus native image makes the
-# cold start nearly invisible (tens of milliseconds), so scale-to-zero is
-# practical for the long tail of specialized MCP tool servers.
+# and spin new ones up on the first request. Native images minimize cold-start
+# time, while the same flow also works with the default JVM image.
 #
 # Prereqs:
 #   1. Install OpenShift Serverless + Knative Serving first:  ./install-serverless.sh
 #      (or apply k8s/serverless-operator.yaml then k8s/knative-serving.yaml)
-#   2. Push the app image (e.g. `mvn clean package -Dnative -Dquarkus.openshift.deploy=true`,
-#      then reference that image below).
-#   3. Apply the shared database, then this Service:
-#        oc apply -f k8s/postgres.yaml
-#        oc apply -f k8s/knative-service.yaml
+#   2. Deploy the regular OpenShift demo first so its MCP ImageStream exists.
+#   3. Run ./knative-mode.sh enable. The script switches the Agent to this
+#      cluster-local Service and scales the regular MCP Deployment to zero.
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: stateless-mcp-server
+  name: stateless-mcp-knative
   labels:
-    app: stateless-mcp-server
+    app.kubernetes.io/name: stateless-mcp-knative
+    app.kubernetes.io/part-of: helios
+    app.kubernetes.io/component: mcp-server
+    networking.knative.dev/visibility: cluster-local
 spec:
   template:
     metadata:
@@ -29,9 +29,8 @@ spec:
         autoscaling.knative.dev/target: "50"
     spec:
       containers:
-        # Replace with your pushed MCP-server image (internal registry or quay.io/…).
-        # The agent then points MCP_FLEET_URL at this Knative service's URL.
-        - image: image-registry.openshift-image-registry.svc:5000/helios/stateless-mcp-server:1.0.0
+        # Built by ./deploy-openshift.sh. Knative resolves this tag to an immutable digest.
+        - image: image-registry.openshift-image-registry.svc:5000/helios/stateless-mcp-quarkus:1.0.0
           ports:
             - containerPort: 8080
           envFrom:
@@ -45,3 +44,29 @@ spec:
             httpGet:
               path: /q/health/live
               port: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+---
+# Passive discovery for the Agent UI. DNS returns one address per ready
+# Knative pod without sending traffic through Knative, so polling this Service
+# does not wake a revision that has scaled to zero.
+apiVersion: v1
+kind: Service
+metadata:
+  name: stateless-mcp-knative-headless
+  labels:
+    app.kubernetes.io/name: stateless-mcp-knative-headless
+    app.kubernetes.io/part-of: helios
+spec:
+  clusterIP: None
+  selector:
+    serving.knative.dev/service: stateless-mcp-knative
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

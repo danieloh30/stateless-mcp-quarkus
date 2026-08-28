@@ -29,5 +29,4 @@ echo "==> Waiting for Knative Serving to become Ready"
 oc wait --for=condition=Ready knativeserving/knative-serving -n knative-serving --timeout=600s
 
 echo "==> OpenShift Serverless is ready. You can now deploy the scale-to-zero MCP fleet:"
-echo "    oc apply -f k8s/postgres.yaml"
-echo "    oc apply -f k8s/knative-service.yaml"
+echo "    ./knative-mode.sh enable"

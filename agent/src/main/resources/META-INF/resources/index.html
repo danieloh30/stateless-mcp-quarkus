@@ -226,6 +226,7 @@
   const $ = (s) => document.querySelector(s);
   let tools = [], selected = null;
   let burstEnabled = false;
+  let scaleToZero = false;
   let readyReplicas = null;
   const observedReplicas = new Set();
 
@@ -318,6 +319,7 @@
     try {
       const runtime = await getJson("agent/runtime");
       burstEnabled = runtime.burstEnabled === true;
+      scaleToZero = runtime.scaleToZero === true;
       readyReplicas = Number.isInteger(runtime.readyReplicas) ? runtime.readyReplicas : null;
       $("#fleetReadyLabel").textContent = readyReplicas == null
         ? "ready replicas unavailable"
@@ -400,7 +402,7 @@
       for (let i = 1; i <= count; i++) {
         const start = performance.now();
         try {
-          const si = await getJson("agent/instance");
+          const si = await getJson("agent/instance?wake=true");
           const ms = Math.round(performance.now() - start);
           observeInstance(si);
           box.insertAdjacentHTML("beforeend",
@@ -447,9 +449,13 @@
   async function initialize() {
     await loadRuntime();
     await loadCatalog();
-    refreshInstance();
     setInterval(loadRuntime, 3000);
-    setInterval(refreshInstance, 3000);
+    // Active instance polling is useful for the fixed fleet demo, but it would
+    // itself be traffic that prevents a Knative revision from scaling to zero.
+    if (!scaleToZero) {
+      refreshInstance();
+      setInterval(refreshInstance, 3000);
+    }
   }
 
   initialize();

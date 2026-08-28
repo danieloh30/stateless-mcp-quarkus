@@ -225,7 +225,7 @@ Knative Serving, waiting until both are ready:
 ./install-serverless.sh   # applies k8s/serverless-operator.yaml + k8s/knative-serving.yaml
 ```
 
-### Step 3 — Build native images and deploy the apps + database
+### Step 3 — Build images and deploy the apps + database
 
 ```bash
 ./deploy-openshift.sh          # JVM images (portable default)
@@ -240,7 +240,7 @@ Deployment as `OPENAI_API_KEY` (never bake it into the image):
 
 ```bash
 oc create secret generic helios-openai --from-literal=OPENAI_API_KEY="$OPENAI_API_KEY"
-oc set env deploy/agent --from=secret/helios-openai
+oc set env deploy/stateless-agent --from=secret/helios-openai
 ```
 
 ### Step 4 — Scale the stateless fleet
@@ -253,12 +253,27 @@ oc scale deploy/stateless-mcp-quarkus --replicas=8
 
 ### Step 5 — Scale to zero with Knative (the stateless payoff)
 
-A native image cold-starts in tens of milliseconds, so running **zero** replicas when idle is
-practical. Run the MCP fleet as a Knative Service (`minScale: 0`):
+Switch the Agent from the fixed Deployment/L7 fleet to a cluster-local Knative Service
+(`minScale: 0`) backed by the same MCP image and PostgreSQL database:
 
 ```bash
-oc apply -f k8s/postgres.yaml
-oc apply -f k8s/knative-service.yaml
+./knative-mode.sh enable
+oc get pod -l serving.knative.dev/service=stateless-mcp-knative -w
+```
+
+After the last request and Knative's idle window, the MCP pod count falls to zero. The SPA's
+three-second readiness check uses a passive headless Service and therefore does not wake it. Invoke
+a tool in the SPA to cold-start the MCP server and watch the ready count rise again. A native image
+starts faster, but the flow also works with the default portable JVM image. While this mode is
+active, the Agent probe checks the Agent itself rather than issuing an MCP discovery request every
+ten seconds, and the MCP client's one-minute automatic heartbeat is disabled; otherwise that health
+traffic would deliberately keep Knative warm. Passive instance polling is also blocked server-side,
+so even a browser tab opened before the mode switch cannot keep the MCP revision running.
+
+Return to the regular L7-balanced fleet (restoring its previous replica count) with:
+
+```bash
+./knative-mode.sh disable
 ```
 
 > Demo flow for the talk: **dev (2 processes) → local cluster (`./start-cluster.sh`, 5 replicas
@@ -311,7 +326,7 @@ stateless-mcp-quarkus/               (parent / aggregator pom)
 │   ├── serverless-operator.yaml    # OpenShift Serverless operator (OLM)
 │   ├── knative-serving.yaml        # KnativeServing CR (enables scale-to-zero)
 │   └── knative-service.yaml        # the MCP fleet as a scale-to-zero Knative Service
-├── start-cluster.sh / stop-cluster.sh
+├── start-cluster.sh / stop-cluster.sh / knative-mode.sh
 ├── install-serverless.sh / deploy-openshift.sh
 └── .github/                         # Dependabot + build-gated auto-merge
 ```

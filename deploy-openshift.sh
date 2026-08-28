@@ -88,4 +88,4 @@ echo
                 || echo "==> Deployed. Find the route:  oc get route stateless-agent"
 echo
 echo "Scale the stateless MCP fleet:   oc scale deploy/stateless-mcp-quarkus --replicas=8"
-echo "Scale-to-zero (Knative):         ./install-serverless.sh  then  oc apply -f k8s/knative-service.yaml"
+echo "Scale-to-zero (Knative):         ./install-serverless.sh  then  ./knative-mode.sh enable"
