@@ -64,7 +64,10 @@
   .pods { display: flex; flex-direction: column; gap: 5px; }
   .pod { width: 58px; height: 18px; border-radius: 7px; display:flex; align-items:center; justify-content:center;
     font-size: 9.5px; font-weight: 700; color: #fff; background: linear-gradient(120deg, var(--sun-1), var(--sun-2)); }
+  .pod.hit { animation: pod-hit .45s ease-out; }
   .pod.zero { background: repeating-linear-gradient(45deg,#c7cde0,#c7cde0 5px,#dbe0ee 5px,#dbe0ee 10px); color: var(--muted); }
+  @keyframes pod-hit { 0% { transform: scale(.82); box-shadow: 0 0 0 0 rgba(14,165,164,.65); }
+    100% { transform: scale(1); box-shadow: 0 0 0 8px rgba(14,165,164,0); } }
   .flow { flex: 1; height: 2px; min-width: 12px; background: linear-gradient(90deg, var(--indigo), var(--teal)); position: relative; opacity:.6; }
   .flow::after { content:"›"; position:absolute; right:-4px; top:-12px; color: var(--teal); font-size: 20px; }
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
@@ -158,8 +161,8 @@
       <div class="node"><div class="box">⚖️</div>LB</div>
       <div class="flow"></div>
       <div class="node">
-        <div class="pods"><div class="pod">mcp</div><div class="pod">mcp</div><div class="pod zero">0</div></div>
-        <div style="margin-top:6px">Stateless<br>fleet</div>
+        <div class="pods" id="fleetPods"><div class="pod zero">—</div></div>
+        <div style="margin-top:6px">Stateless fleet<br><span id="fleetLabel">discovering…</span></div>
       </div>
       <div class="flow"></div>
       <div class="node"><div class="box">🗄️</div>Postgres</div>
@@ -220,6 +223,7 @@
 <script>
   const $ = (s) => document.querySelector(s);
   let tools = [], selected = null;
+  const observedReplicas = new Set();
 
   // Friendly labels/icons + example args for each tool.
   const META = {
@@ -260,13 +264,29 @@
   }
   function fmtUptime(ms) { const s = Math.floor(ms / 1000); return s < 60 ? s + "s" : Math.floor(s/60) + "m " + (s%60) + "s"; }
 
+  function renderFleet(activeId) {
+    const ids = [...observedReplicas];
+    $("#fleetPods").innerHTML = ids.length
+      ? ids.map((id) => `<div class="pod${id === activeId ? " hit" : ""}" title="${id}">${id.replace(/^helios-/, "").slice(0, 8)}</div>`).join("")
+      : `<div class="pod zero">—</div>`;
+    $("#fleetLabel").textContent = ids.length
+      ? `${ids.length} replica${ids.length === 1 ? "" : "s"} observed`
+      : "waiting for requests";
+  }
+
+  function observeInstance(si) {
+    observedReplicas.add(si.instanceId);
+    $("#transport").textContent = si.transport;
+    $("#instanceId").textContent = si.instanceId;
+    $("#stInstance").textContent = String(si.instanceId).replace("helios-", "");
+    $("#stUptime").textContent = fmtUptime(si.uptimeMs);
+    renderFleet(si.instanceId);
+  }
+
   async function refreshInstance() {
     try {
       const si = await getJson("agent/instance");
-      $("#transport").textContent = si.transport;
-      $("#instanceId").textContent = si.instanceId;
-      $("#stInstance").textContent = String(si.instanceId).replace("helios-", "");
-      $("#stUptime").textContent = fmtUptime(si.uptimeMs);
+      observeInstance(si);
     } catch (e) { $("#transport").textContent = "fleet unreachable"; }
   }
 
@@ -343,22 +363,34 @@
   }
 
   async function burst() {
+    const btn = $("#burstBtn");
     const box = $("#burst");
+    btn.disabled = true;
+    btn.textContent = "Running 0/5…";
+    observedReplicas.clear();
+    renderFleet();
     box.classList.add("show");
     box.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">
       5 independent requests through the agent's MCP client — no session, no ordering. Run the cluster
       (<code>./start-cluster.sh</code>) and the serving replica rotates below; in single dev mode
       you'll see one replica — same guarantee, one server.</div>`;
-    for (let i = 1; i <= 5; i++) {
-      const start = performance.now();
-      try {
-        const si = await getJson("agent/instance");
-        const ms = Math.round(performance.now() - start);
-        box.insertAdjacentHTML("beforeend",
-          `<div class="brow"><span class="n">#${i}</span><span class="id">⬡ ${si.instanceId}</span><span class="lat">${ms} ms</span></div>`);
-      } catch (e) {
-        box.insertAdjacentHTML("beforeend", `<div class="brow"><span class="n">#${i}</span><span>error</span></div>`);
+    try {
+      for (let i = 1; i <= 5; i++) {
+        const start = performance.now();
+        try {
+          const si = await getJson("agent/instance");
+          const ms = Math.round(performance.now() - start);
+          observeInstance(si);
+          box.insertAdjacentHTML("beforeend",
+            `<div class="brow"><span class="n">#${i}</span><span class="id">⬡ ${si.instanceId}</span><span class="lat">${ms} ms</span></div>`);
+        } catch (e) {
+          box.insertAdjacentHTML("beforeend", `<div class="brow"><span class="n">#${i}</span><span>error</span></div>`);
+        }
+        btn.textContent = `Running ${i}/5…`;
       }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Run 5× (statelessness)";
     }
   }
 
