@@ -10,9 +10,6 @@ A production-shaped demo of **stateless, cloud-native MCP (Model Context Protoco
 routes plain-English questions to specialist sub-agents, each backed by the MCP fleet — with a
 polished single-page console.
 
-> Companion demo for the talk **“Going Stateless: Scaling MCP Servers to Cloud-Native Java & HTTP”**
-> (MCP Dev Summit, Toronto 2026).
-
 ---
 
 ## The enterprise scenario
