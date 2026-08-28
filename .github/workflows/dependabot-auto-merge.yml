@@ -37,8 +37,10 @@ jobs:
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Enable auto-merge
-        run: gh pr merge --auto --squash "$PR_URL"
+      # The build job above is the merge gate. Do not use `--auto` here: GitHub
+      # rejects auto-merge when the base branch has no protected-branch rules.
+      - name: Squash and merge PR
+        run: gh pr merge --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
