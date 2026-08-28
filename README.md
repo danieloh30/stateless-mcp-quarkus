@@ -164,8 +164,8 @@ Run both commands **from the repo root** (the `-pl` module paths resolve against
 ./mvnw -pl mcp-server quarkus:dev
 
 # Terminal 2 — the agent (console + supervisor/sub-agents) on :8090, pointing at :8080.
-# Reads OPENAI_API_KEY from your shell.
-./mvnw -pl agent quarkus:dev
+# Reads OPENAI_API_KEY from your shell. Basic console mode avoids terminal cursor-detection hangs.
+./mvnw -pl agent -Dquarkus.console.basic=true quarkus:dev
 ```
 
 Open the console at **<http://localhost:8090/>**. In dev there is one MCP server, so “Run 5×” shows
