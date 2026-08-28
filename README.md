@@ -204,7 +204,7 @@ open http://localhost:8080
 The `quarkus-openshift` extension generates the manifests at build time. The **agent** gets a Route
 (external); the **MCP servers** stay internal behind a ClusterIP Service that round-robins across
 replicas — no nginx needed on the cluster. The agent finds the fleet at
-`http://stateless-mcp-server:8080/mcp` (override with `MCP_FLEET_URL`), and the datasource comes from
+`http://stateless-mcp-quarkus/mcp` (override with `MCP_FLEET_URL`), and the datasource comes from
 the `helios-db` Secret — no secrets in the image.
 
 ### Step 1 — Log in and pick a project
@@ -246,7 +246,7 @@ oc set env deploy/agent --from=secret/helios-openai
 No session affinity, so scaling is just a number:
 
 ```bash
-oc scale deploy/stateless-mcp-server --replicas=8
+oc scale deploy/stateless-mcp-quarkus --replicas=8
 ```
 
 ### Step 5 — Scale to zero with Knative (the stateless payoff)
