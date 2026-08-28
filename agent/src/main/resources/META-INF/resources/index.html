@@ -176,7 +176,7 @@
     <div class="stat"><div class="k">Serving Replica</div><div class="v" id="stInstance">—</div></div>
     <div class="stat"><div class="k">Replica Uptime</div><div class="v" id="stUptime">—</div></div>
     <div class="stat"><div class="k">MCP Tools</div><div class="v" id="stTools">—</div></div>
-    <div class="stat"><div class="k">Session State</div><div class="v" style="color:var(--ok)">0<small> bytes</small></div></div>
+    <div class="stat"><div class="k">MCP Session</div><div class="v" style="color:var(--ok)">None<small> server-side</small></div></div>
   </div>
 
   <div class="card" style="margin-top:22px">
@@ -268,6 +268,8 @@
         });
   }
   function fmtUptime(ms) { const s = Math.floor(ms / 1000); return s < 60 ? s + "s" : Math.floor(s/60) + "m " + (s%60) + "s"; }
+  function burstRequestCount() { return readyReplicas > 0 ? readyReplicas : 5; }
+  function burstButtonLabel() { return `Run ${burstRequestCount()}× (statelessness)`; }
 
   function renderFleet(activeId) {
     const ids = [...observedReplicas];
@@ -321,6 +323,8 @@
       $("#fleetReadyLabel").textContent = readyReplicas == null
         ? "ready replicas unavailable"
         : `${readyReplicas} ready replica${readyReplicas === 1 ? "" : "s"}`;
+      const burstBtn = $("#burstBtn");
+      if (burstBtn && !burstBtn.disabled) burstBtn.textContent = burstButtonLabel();
     } catch (e) {
       burstEnabled = false;
     }
@@ -343,7 +347,7 @@
       ${fields}
       <div class="btn-row">
         <button class="primary" id="runBtn">Run tool</button>
-        ${burstEnabled ? `<button class="ghost" id="burstBtn" title="Fire 5 requests and observe which ready replicas serve them">Run 5× (statelessness)</button>` : ""}
+        ${burstEnabled ? `<button class="ghost" id="burstBtn" title="Send one request per ready replica and observe which replicas serve them">${burstButtonLabel()}</button>` : ""}
       </div>
       <div id="result"></div>
       <div class="burst" id="burst"></div>`;
@@ -383,17 +387,18 @@
   async function burst() {
     const btn = $("#burstBtn");
     const box = $("#burst");
+    const count = burstRequestCount();
     btn.disabled = true;
-    btn.textContent = "Running 0/5…";
+    btn.textContent = `Running 0/${count}…`;
     observedReplicas.clear();
     renderFleet();
     box.classList.add("show");
     box.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">
-      5 independent requests through the agent's MCP client — no session, no ordering. In cluster
+      ${count} independent requests through the agent's MCP client — no session, no ordering. In cluster
       deployments the L7 proxy creates a fresh upstream connection per request, so multiple ready
       replicas can serve the burst; selection is load-balanced, not guaranteed to visit every pod.</div>`;
     try {
-      for (let i = 1; i <= 5; i++) {
+      for (let i = 1; i <= count; i++) {
         const start = performance.now();
         try {
           const si = await getJson("agent/instance");
@@ -404,11 +409,11 @@
         } catch (e) {
           box.insertAdjacentHTML("beforeend", `<div class="brow"><span class="n">#${i}</span><span>error</span></div>`);
         }
-        btn.textContent = `Running ${i}/5…`;
+        btn.textContent = `Running ${i}/${count}…`;
       }
     } finally {
       btn.disabled = false;
-      btn.textContent = "Run 5× (statelessness)";
+      btn.textContent = burstButtonLabel();
     }
   }
 
