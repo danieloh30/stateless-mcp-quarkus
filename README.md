@@ -149,6 +149,16 @@ Prerequisites: **Java 25+**, the **Quarkus CLI**, **Docker** or **Podman** (for 
 **`OPENAI_API_KEY`** (the agent's supervisor + sub-agents call OpenAI). The model defaults to
 `gpt-5.6-sol` and is overridable with **`HELIOS_LLM_MODEL`** (a mini model works fine too).
 
+If the `quarkus` command is not installed, install the CLI with one of these options (see the
+[official Quarkus CLI guide](https://quarkus.io/guides/cli-tooling)):
+
+```bash
+brew install quarkusio/tap/quarkus  # Homebrew (macOS/Linux)
+sdk install quarkus                 # SDKMAN! (macOS/Linux)
+jbang app install --fresh --force quarkus@quarkusio  # JBang (cross-platform)
+quarkus --version                   # verify
+```
+
 ```bash
 export OPENAI_API_KEY=sk-...          # required for the "Ask the Agent" flow
 export HELIOS_LLM_MODEL=gpt-5.6-sol   # optional — defaults to this
