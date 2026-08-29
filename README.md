@@ -10,6 +10,8 @@ A production-shaped demo of **stateless, cloud-native MCP (Model Context Protoco
 routes plain-English questions to specialist sub-agents, each backed by the MCP fleet — with a
 polished single-page console.
 
+**Conference site:** <https://danieloh30.github.io/stateless-mcp-quarkus/>
+
 ---
 
 ## The enterprise scenario
@@ -327,6 +329,22 @@ Return to the regular L7-balanced fleet (restoring its previous replica count) w
   GitHub Actions checks.
 - **`.github/workflows/dependabot-auto-merge.yml`** — builds/tests each Dependabot PR, then
   **auto-merges** only if it passes.
+
+## GitHub Pages
+
+The conference-friendly site is generated directly from this README, so setup instructions stay in
+one place. Every documentation change on `main` is published by
+[`pages.yml`](.github/workflows/pages.yml).
+
+Preview it locally before presenting:
+
+```bash
+python3 -m pip install -r requirements-docs.txt
+./scripts/preview-pages.sh
+```
+
+Then open <http://127.0.0.1:8000/>. The first repository setup may require selecting **GitHub
+Actions** under **Settings → Pages → Build and deployment → Source**.
 
 ## Project layout
 

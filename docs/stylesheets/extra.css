@@ -1,0 +1,23 @@
+:root {
+  --md-primary-fg-color: #5b45d6;
+  --md-accent-fg-color: #ed633f;
+}
+
+.md-header {
+  background: linear-gradient(110deg, #5b45d6, #df4e67 62%, #ef942f);
+}
+
+.md-typeset h1 {
+  color: var(--md-default-fg-color);
+  font-weight: 750;
+}
+
+.md-typeset img {
+  border: 1px solid color-mix(in srgb, var(--md-default-fg-color) 14%, transparent);
+  border-radius: 0.75rem;
+  box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, #20223c 14%, transparent);
+}
+
+.md-typeset pre > code {
+  border-radius: 0.5rem;
+}

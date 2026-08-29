@@ -20,3 +20,7 @@ build/
 # Quarkus
 .quarkus/
 *.log
+
+# Generated GitHub Pages input/output
+.pages-src/
+site/
