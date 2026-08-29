@@ -257,6 +257,13 @@ The SPA shows platform readiness separately from replicas actually observed serv
 
 *Helios Control Tower in fixed-fleet mode with eight ready MCP replicas.*
 
+<img src="docs/images/openshift-normal-pods.png"
+     alt="OpenShift topology showing the Agent, nginx L7 proxy, MCP deployment, and PostgreSQL"
+     width="650">
+
+*OpenShift Developer Topology in regular mode: Agent → nginx L7 proxy → stateless MCP Deployment
+→ PostgreSQL.*
+
 ### Step 5 — Scale to zero with Knative (the stateless payoff)
 
 Switch the Agent from the fixed Deployment/L7 fleet to a cluster-local Knative Service
