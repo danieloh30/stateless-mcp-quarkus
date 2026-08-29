@@ -251,6 +251,12 @@ No session affinity, so scaling is just a number:
 oc scale deploy/stateless-mcp-quarkus --replicas=8
 ```
 
+The SPA shows platform readiness separately from replicas actually observed serving requests:
+
+![Helios Control Tower showing the fixed OpenShift MCP fleet](docs/images/helios-control-tower.png)
+
+*Helios Control Tower in fixed-fleet mode with eight ready MCP replicas.*
+
 ### Step 5 — Scale to zero with Knative (the stateless payoff)
 
 Switch the Agent from the fixed Deployment/L7 fleet to a cluster-local Knative Service
@@ -269,6 +275,11 @@ active, the Agent probe checks the Agent itself rather than issuing an MCP disco
 ten seconds, and the MCP client's one-minute automatic heartbeat is disabled; otherwise that health
 traffic would deliberately keep Knative warm. Passive instance polling is also blocked server-side,
 so even a browser tab opened before the mode switch cannot keep the MCP revision running.
+
+![OpenShift topology showing the Knative Service and Quarkus revision](docs/images/openshift-knative-service.png)
+
+*OpenShift Developer Topology groups the Quarkus Revision under its Knative Service; the objects
+remain visible even after the revision's pod count reaches zero.*
 
 Return to the regular L7-balanced fleet (restoring its previous replica count) with:
 
