@@ -50,6 +50,13 @@ case "$MODE" in
     echo "==> Scaling down the regular fleet and its L7 proxy"
     oc scale deployment/stateless-mcp-quarkus --replicas=0
     oc scale deployment/stateless-mcp-l7 --replicas=0
+    echo "==> Updating OpenShift topology connectors for Knative mode"
+    oc annotate deployment/stateless-agent \
+      app.openshift.io/connects-to=stateless-mcp-knative --overwrite
+    oc annotate kservice/stateless-mcp-knative \
+      app.openshift.io/connects-to=helios-postgres --overwrite
+    oc annotate deployment/stateless-mcp-l7 app.openshift.io/connects-to- || true
+    oc annotate deployment/stateless-mcp-quarkus app.openshift.io/connects-to- || true
     echo "==> Knative mode enabled. Watch: oc get pod -l serving.knative.dev/service=stateless-mcp-knative -w"
     ;;
   disable)
@@ -67,6 +74,13 @@ case "$MODE" in
       MCP_FLEET_AUTO_HEALTH_CHECK-
     oc patch deployment/stateless-agent --type=json \
       -p='[{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe/httpGet/path","value":"/q/health/ready"}]'
+    echo "==> Restoring OpenShift topology connectors for regular fleet mode"
+    oc annotate deployment/stateless-agent \
+      app.openshift.io/connects-to=stateless-mcp-l7 --overwrite
+    oc annotate deployment/stateless-mcp-l7 \
+      app.openshift.io/connects-to=stateless-mcp-quarkus --overwrite
+    oc annotate deployment/stateless-mcp-quarkus \
+      app.openshift.io/connects-to=helios-postgres --overwrite
     oc rollout status deployment/stateless-agent --timeout=300s
     oc delete -f k8s/knative-service.yaml --ignore-not-found
     echo "==> Regular fleet mode restored"

@@ -14,6 +14,8 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: stateless-mcp-knative
+  annotations:
+    app.openshift.io/connects-to: helios-postgres
   labels:
     app.kubernetes.io/name: stateless-mcp-knative
     app.kubernetes.io/part-of: helios
