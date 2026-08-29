@@ -18,6 +18,7 @@ metadata:
     app.kubernetes.io/name: stateless-mcp-knative
     app.kubernetes.io/part-of: helios
     app.kubernetes.io/component: mcp-server
+    app.openshift.io/runtime: quarkus
     networking.knative.dev/visibility: cluster-local
 spec:
   template:
