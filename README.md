@@ -257,9 +257,7 @@ The SPA shows platform readiness separately from replicas actually observed serv
 
 *Helios Control Tower in fixed-fleet mode with eight ready MCP replicas.*
 
-<img src="docs/images/openshift-normal-pods.png"
-     alt="OpenShift topology showing the Agent, nginx L7 proxy, MCP deployment, and PostgreSQL"
-     width="650">
+![OpenShift topology showing the Agent, nginx L7 proxy, MCP deployment, and PostgreSQL](docs/images/openshift-normal-pods.png)
 
 *OpenShift Developer Topology in regular mode: Agent → nginx L7 proxy → stateless MCP Deployment
 → PostgreSQL.*
@@ -283,9 +281,7 @@ ten seconds, and the MCP client's one-minute automatic heartbeat is disabled; ot
 traffic would deliberately keep Knative warm. Passive instance polling is also blocked server-side,
 so even a browser tab opened before the mode switch cannot keep the MCP revision running.
 
-<img src="docs/images/openshift-knative-service.png"
-     alt="OpenShift topology showing the Knative Service and Quarkus revision"
-     width="520">
+![OpenShift topology showing the Knative Service and Quarkus revision](docs/images/openshift-knative-service.png)
 
 *OpenShift Developer Topology groups the Quarkus Revision under its Knative Service; the objects
 remain visible even after the revision's pod count reaches zero.*
