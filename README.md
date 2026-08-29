@@ -98,6 +98,32 @@ result never changes — real horizontal scaling, and the basis for **scale to z
 Statelessness is enabled with `quarkus.mcp.server.http.streamable.auto-init=true`: no `initialize`
 handshake or session is required, so there's no affinity to pin a client to one replica.
 
+### Why the agents use scoped `@ToolBox` bridges
+
+Quarkus LangChain4j 1.13 supports putting `@McpToolBox("fleet")` directly on a declarative `@Agent`
+method. That is the shortest way to expose every tool discovered from the named remote MCP client.
+This demo deliberately keeps the small bridge classes under `agent/.../tools/` and attaches them with
+`@ToolBox`, however, so each specialist receives only its domain tools: Shipment gets three,
+Inventory one, and Exceptions one. Replacing those bridges with `@McpToolBox("fleet")` would give
+every specialist all five remote tools. The MCP calls are remote in either design.
+
+### Where `Mcp-Method` and `Mcp-Name` come from
+
+They are standard Streamable HTTP request headers in MCP `2026-07-28`, not values configured in
+`application.properties`, nginx, or the Knative manifest:
+
+- `Mcp-Method` mirrors the JSON-RPC `method`, such as `tools/list`, `tools/call`, or
+  `resources/read`.
+- `Mcp-Name` mirrors the target in `params.name` for a tool/prompt or `params.uri` for a resource.
+  For example, calling `getCarrierSla` sends `Mcp-Method: tools/call` and
+  `Mcp-Name: getCarrierSla`.
+
+The MCP server registers each Java method annotated with `@Tool`; absent an explicit annotation
+name, its Java method name becomes the tool name. On the Agent side, `AgentService` creates a
+`ToolExecutionRequest` with that name. The managed `McpClient` serializes the JSON-RPC body and its
+Streamable HTTP transport automatically derives and sends the matching headers. Applications only
+set these headers themselves when implementing a raw MCP HTTP client.
+
 ---
 
 ## MCP tools

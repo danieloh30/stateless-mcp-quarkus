@@ -12,10 +12,11 @@ import jakarta.inject.Inject;
 /**
  * Shipment-domain tools, bridged from the stateless MCP fleet.
  *
- * <p>{@code @McpToolBox} does not compose with declarative {@code @Agent} methods in
- * quarkus-langchain4j 1.9.x, so each fleet tool is re-exposed here as a langchain4j
- * {@link Tool} and attached to the agent with {@code @ToolBox}. Every call still goes
- * through the managed {@code McpClient} to a (possibly different) stateless replica.
+ * <p>{@code @McpToolBox("fleet")} can expose the entire remote catalog directly to a
+ * declarative agent. This bridge intentionally re-exposes only the shipment subset as
+ * LangChain4j {@link Tool tools} and is attached with {@code @ToolBox}; the inventory
+ * and exception agents receive their own least-privilege subsets. Every call still
+ * goes through the managed {@code McpClient} to a stateless replica.
  */
 @ApplicationScoped
 public class ShipmentToolbox {
