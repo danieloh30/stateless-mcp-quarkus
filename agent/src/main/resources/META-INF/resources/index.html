@@ -140,29 +140,29 @@
       <p class="lead">
         This console is the <strong>agent app</strong>. It calls a server-side
         <strong>MCP client</strong> (managed <code>McpClient</code>), which reaches a fleet of
-        <strong>stateless MCP servers</strong> through a load balancer. Because the servers keep no
+        <strong>stateless MCP servers</strong> <span id="routingDescription">through a load balancer</span>. Because the servers keep no
         session state, every <code>tools/call</code> can land on a different replica — the platform
         load-balances trivially and <strong>scales to zero</strong> when idle. Built on Quarkus;
         tool data lives in a shared PostgreSQL.
       </p>
       <div class="tags">
-        <span class="tag">Agent → MCP client → fleet</span>
+        <span class="tag" id="topologyTag">Agent → MCP client → L7 → fleet</span>
         <span class="tag">Stateless HTTP</span>
         <span class="tag">Scale to Zero</span>
         <span class="tag">PostgreSQL lookups</span>
         <span class="tag">AOT / Native-ready</span>
       </div>
     </div>
-    <div class="diagram" title="browser → agent → MCP client → LB → stateless replicas → shared DB">
+    <div class="diagram" id="topologyDiagram" title="browser → agent → MCP client → L7 → stateless replicas → shared DB">
       <div class="node"><div class="box">🖥️</div>Agent<br>(this UI)</div>
       <div class="flow"></div>
       <div class="node"><div class="box">🔌</div>MCP<br>Client</div>
       <div class="flow"></div>
-      <div class="node"><div class="box">⚖️</div>LB</div>
+      <div class="node"><div class="box" id="routingIcon">⚖️</div><span id="routingLabel">L7</span></div>
       <div class="flow"></div>
       <div class="node">
         <div class="pods" id="fleetPods"><div class="pod zero">—</div></div>
-        <div style="margin-top:6px">Stateless fleet<br>
+        <div style="margin-top:6px"><span id="fleetModeLabel">Stateless fleet</span><br>
           <span id="fleetReadyLabel">discovering ready pods…</span><br>
           <span id="fleetLabel">waiting for requests</span>
         </div>
@@ -322,8 +322,25 @@
   async function loadRuntime() {
     try {
       const runtime = await getJson("agent/runtime");
+      const previousScaleToZero = scaleToZero;
       burstEnabled = runtime.burstEnabled === true;
       scaleToZero = runtime.scaleToZero === true;
+      if (previousScaleToZero !== scaleToZero) {
+        observedReplicas.clear();
+        renderFleet();
+      }
+      $("#routingDescription").textContent = scaleToZero
+        ? "through Knative Serving"
+        : "through an L7 load balancer";
+      $("#topologyTag").textContent = scaleToZero
+        ? "Agent → MCP client → Knative → revision"
+        : "Agent → MCP client → L7 → fleet";
+      $("#topologyDiagram").title = scaleToZero
+        ? "browser → agent → MCP client → Knative Serving → scale-to-zero revision → shared DB"
+        : "browser → agent → MCP client → L7 → stateless replicas → shared DB";
+      $("#routingIcon").textContent = scaleToZero ? "☁️" : "⚖️";
+      $("#routingLabel").textContent = scaleToZero ? "Knative" : "L7";
+      $("#fleetModeLabel").textContent = scaleToZero ? "Knative revision" : "Stateless fleet";
       readyReplicas = Number.isInteger(runtime.readyReplicas) ? runtime.readyReplicas : null;
       $("#fleetReadyLabel").textContent = readyReplicas == null
         ? "ready replicas unavailable"
@@ -408,10 +425,12 @@
     observedReplicas.clear();
     renderFleet();
     box.classList.add("show");
+    const routingNote = scaleToZero
+      ? "Knative wakes the revision on demand; the request count follows the ready replica count."
+      : "The L7 proxy creates a fresh upstream connection per request, so multiple ready replicas can serve the burst; selection is load-balanced, not guaranteed to visit every pod.";
     box.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">
-      ${count} independent requests through the agent's MCP client — no session, no ordering. In cluster
-      deployments the L7 proxy creates a fresh upstream connection per request, so multiple ready
-      replicas can serve the burst; selection is load-balanced, not guaranteed to visit every pod.</div>`;
+      ${count} independent request${count === 1 ? "" : "s"} through the agent's MCP client — no session, no ordering.
+      ${routingNote}</div>`;
     try {
       for (let i = 1; i <= count; i++) {
         const start = performance.now();
