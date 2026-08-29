@@ -3,6 +3,7 @@
 Helios separates reasoning from tool execution. The agent tier owns conversation and delegation; the MCP tier owns validated access to enterprise data.
 
 ```mermaid
+%%{init: {'look': 'handDrawn', 'theme': 'neutral', 'themeVariables': {'lineColor': '#4A4035'}}}%%
 flowchart LR
     UI([Browser console]) --> SUP[Supervisor agent]
     SUP <--> LLM{{OpenAI}}
