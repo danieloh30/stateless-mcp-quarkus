@@ -29,7 +29,7 @@ hide:
 <div class="stat-strip">
   <div class="stat"><strong>5</strong><span>domain tools</span></div>
   <div class="stat"><strong>3</strong><span>specialist agents</span></div>
-  <div class="stat"><strong>0</strong><span>server sessions</span></div>
+  <div class="stat"><strong>Any</strong><span>healthy replica</span></div>
   <div class="stat"><strong>0→N</strong><span>Knative replicas</span></div>
 </div>
 
