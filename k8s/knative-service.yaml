@@ -23,6 +23,8 @@ metadata:
 spec:
   template:
     metadata:
+      labels:
+        app.openshift.io/runtime: quarkus
       annotations:
         # Scale to zero when idle; burst up under load.
         autoscaling.knative.dev/minScale: "0"
