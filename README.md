@@ -276,7 +276,9 @@ ten seconds, and the MCP client's one-minute automatic heartbeat is disabled; ot
 traffic would deliberately keep Knative warm. Passive instance polling is also blocked server-side,
 so even a browser tab opened before the mode switch cannot keep the MCP revision running.
 
-![OpenShift topology showing the Knative Service and Quarkus revision](docs/images/openshift-knative-service.png)
+<img src="docs/images/openshift-knative-service.png"
+     alt="OpenShift topology showing the Knative Service and Quarkus revision"
+     width="520">
 
 *OpenShift Developer Topology groups the Quarkus Revision under its Knative Service; the objects
 remain visible even after the revision's pod count reaches zero.*
