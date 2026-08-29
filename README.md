@@ -228,6 +228,7 @@ Knative Serving, waiting until both are ready:
 ### Step 3 — Build images and deploy the apps + database
 
 ```bash
+export OPENAI_API_KEY=sk-...   # required; stored in Secret/helios-openai
 ./deploy-openshift.sh          # JVM images (portable default)
 ./deploy-openshift.sh native   # optional: requires a matching native-build environment
 ```
@@ -235,13 +236,10 @@ Knative Serving, waiting until both are ready:
 This applies the shared PostgreSQL (`k8s/postgres.yaml`) and deploys both modules. Generated
 manifests land in each module's `target/kubernetes/`.
 
-The agent needs its OpenAI key on the cluster — create it as a Secret and expose it to the agent
-Deployment as `OPENAI_API_KEY` (never bake it into the image):
-
-```bash
-oc create secret generic helios-openai --from-literal=OPENAI_API_KEY="$OPENAI_API_KEY"
-oc set env deploy/stateless-agent --from=secret/helios-openai
-```
+The script idempotently creates or refreshes `Secret/helios-openai` from the exported key. The
+generated Agent Deployment imports that Secret as `OPENAI_API_KEY`; the key is never baked into an
+image. If the variable is not exported, an existing Secret is reused, or deployment stops with a
+clear error when neither is available.
 
 ### Step 4 — Scale the stateless fleet
 

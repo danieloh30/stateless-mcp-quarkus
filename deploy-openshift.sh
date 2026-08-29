@@ -6,7 +6,9 @@
 #   ./deploy-openshift.sh          # JVM images (portable default)
 #   ./deploy-openshift.sh native   # native images (requires a matching native-build environment)
 #
-# Prereqs: `oc login ...` and a selected project (`oc new-project helios`).
+# Prereqs: `oc login ...`, a selected project (`oc new-project helios`), and
+# OPENAI_API_KEY exported. This script creates/refreshes the helios-openai
+# Secret; the generated Agent Deployment imports it through envFrom.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -77,6 +79,7 @@ oc apply -f k8s/mcp-l7-proxy.yaml
 oc rollout restart deploy/stateless-mcp-l7
 oc rollout status deploy/stateless-mcp-l7 --timeout=180s
 deploy_module agent stateless-agent
+echo "==> Agent configured with OPENAI_API_KEY from Secret/helios-openai"
 
 echo "==> Waiting for rollouts"
 oc rollout status deploy/stateless-mcp-quarkus --timeout=300s || true
