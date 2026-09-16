@@ -2,19 +2,18 @@ name: Auto-merge Dependabot PRs
 
 # When Dependabot opens a daily dependency PR (Quarkus platform, MCP extension,
 # or Actions), build the project first and only auto-merge if it still compiles
-# and its tests pass. This keeps versions current without manual review while
-# refusing to merge an upgrade that breaks the build.
+# and its tests pass. Workflow changes require a maintainer to merge because
+# GITHUB_TOKEN cannot update files under .github/workflows/.
 
 on:
   pull_request:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   build:
-    if: github.actor == 'dependabot[bot]'
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -29,18 +28,35 @@ jobs:
 
   auto-merge:
     needs: build
-    if: github.actor == 'dependabot[bot]'
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: Check for workflow changes
+        id: changes
+        shell: bash
+        run: |
+          workflow_changes="$(gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files?per_page=100" \
+            --jq 'any(.[]; [.filename, .previous_filename // ""] | any(startswith(".github/workflows/")))')"
+          if [[ "$workflow_changes" == *true* ]]; then
+            echo "workflows=true" >> "$GITHUB_OUTPUT"
+            echo "Build and tests passed. A maintainer must merge this PR because GITHUB_TOKEN cannot update .github/workflows/ files." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "workflows=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Approve PR
+        if: steps.changes.outputs.workflows == 'false'
         run: gh pr review --approve "$PR_URL"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # The build job above is the merge gate. Do not use `--auto` here: GitHub
       # rejects auto-merge when the base branch has no protected-branch rules.
       - name: Squash and merge PR
-        run: gh pr merge --squash "$PR_URL"
-        env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: steps.changes.outputs.workflows == 'false'
+        run: gh pr merge --squash --match-head-commit "$PR_HEAD_SHA" "$PR_URL"
