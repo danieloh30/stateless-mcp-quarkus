@@ -32,6 +32,18 @@ Start each module from its own directory:
 
 Open [localhost:8090](http://localhost:8090/). The MCP endpoint is available at `localhost:8080/mcp`.
 
+!!! note "The SPA runs in the agent module"
+    In dev mode, `http://localhost:8080/` redirects to the MCP server's Dev UI. The console SPA
+    runs at `http://localhost:8090/` and needs the second process above. Export `OPENAI_API_KEY`
+    in that second terminal; a missing key prevents the agent from starting. In the cluster
+    setup below, the SPA uses port `8080` instead.
+
+If dev mode appears stuck, check `curl http://localhost:8080/q/health/ready`. A response with
+`"status": "UP"` means the MCP server is running. Dev mode stays in the foreground; press lowercase
+`h` for keyboard shortcuts or `w` to open the current module's web page. The parent POM disables
+JLine's terminal probing in dev mode because it can interfere with Quarkus's keyboard input.
+Restart any dev process started before this setting was added so it takes effect.
+
 !!! note "One replica, same guarantee"
     Dev mode starts one MCP server. The server is still stateless; use the cluster option to make request rotation visible.
 

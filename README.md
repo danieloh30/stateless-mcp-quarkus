@@ -189,8 +189,7 @@ export OPENAI_API_KEY=sk-...          # required for the "Ask the Agent" flow
 export HELIOS_LLM_MODEL=gpt-5.6-sol   # optional — defaults to this
 ```
 
-Run each command **from its module directory**. Starting dev mode inside the module avoids terminal
-initialization issues seen when selecting the module from the repository root with `-pl`:
+Run each command **from its module directory**:
 
 ```bash
 # Terminal 1 — the MCP server. Dev Services auto-starts a throwaway PostgreSQL
@@ -208,6 +207,18 @@ Open the console at **<http://localhost:8090/>**. In dev there is one MCP server
 a single replica — same stateless guarantee, one server.
 
 Other endpoints: MCP at `http://localhost:8080/mcp`, health at `/q/health` on each app.
+
+**Opening `localhost:8080` in dev mode shows the MCP server's Dev UI, not the console SPA.**
+The SPA is served by the `agent` process at `http://localhost:8090/`; starting only `mcp-server`
+does not start the agent. The cluster setup below uses port `8080` for the SPA instead.
+
+Dev mode stays in the foreground while serving requests. Use the lowercase **`h`** key for
+shortcuts and **`w`** to open the current module's web page. The parent POM disables JLine's
+terminal probing in dev mode because it can interfere with Quarkus's keyboard input. Restart
+any dev process started before this setting was added so it takes effect.
+Check `curl http://localhost:8080/q/health/ready` to distinguish a terminal issue from a server
+startup failure. Export `OPENAI_API_KEY` in the **agent's terminal** before starting it; a missing
+key prevents the agent and SPA from starting.
 
 ## Run it — the cluster (see real statelessness)
 

@@ -3,6 +3,7 @@ package dev.helios.agent.rest;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -42,8 +43,8 @@ public class AgentResource {
     @Inject
     HeliosSupervisor supervisor;
 
-    @ConfigProperty(name = "helios.fleet.discovery-host", defaultValue = "")
-    String fleetDiscoveryHost;
+    @ConfigProperty(name = "helios.fleet.discovery-host")
+    Optional<String> fleetDiscoveryHost;
 
     @ConfigProperty(name = "helios.fleet.scale-to-zero", defaultValue = "false")
     boolean scaleToZero;
@@ -82,13 +83,14 @@ public class AgentResource {
     }
 
     private int readyReplicas() {
-        if (fleetDiscoveryHost.isBlank()) {
+        String discoveryHost = fleetDiscoveryHost.orElse("");
+        if (discoveryHost.isBlank()) {
             return 1;
         }
         try {
-            return InetAddress.getAllByName(fleetDiscoveryHost).length;
+            return InetAddress.getAllByName(discoveryHost).length;
         } catch (Exception e) {
-            LOG.debugf("Could not resolve ready MCP replicas from %s: %s", fleetDiscoveryHost, e.getMessage());
+            LOG.debugf("Could not resolve ready MCP replicas from %s: %s", discoveryHost, e.getMessage());
             return 0;
         }
     }

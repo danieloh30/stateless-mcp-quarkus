@@ -45,4 +45,23 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>${quarkus.platform.group-id}</groupId>
+          <artifactId>quarkus-maven-plugin</artifactId>
+          <version>${quarkus.platform.version}</version>
+          <configuration>
+            <systemProperties>
+              <!-- Dekorate uses JLine for logging. Keep its terminal passive so
+                   Quarkus's dev console has exclusive control of stdin. -->
+              <org.jline.terminal.provider>dumb</org.jline.terminal.provider>
+            </systemProperties>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
 </project>
