@@ -328,7 +328,8 @@ Return to the regular L7-balanced fleet (restoring its previous replica count) w
 - **`.github/dependabot.yml`** — **daily** Maven (`io.quarkus*`, `io.quarkiverse.mcp*`, grouped) and
   GitHub Actions checks.
 - **`.github/workflows/dependabot-auto-merge.yml`** — builds/tests each Dependabot PR, then
-  **auto-merges** only if it passes.
+  **auto-merges** only if it passes. PRs that change `.github/workflows/` require a
+  maintainer to merge because the workflow's `GITHUB_TOKEN` cannot update workflow files.
 
 ## GitHub Pages
 
