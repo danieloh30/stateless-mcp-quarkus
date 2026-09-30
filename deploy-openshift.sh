@@ -25,6 +25,7 @@ if [ "$MODE" != "jvm" ] && [ "$MODE" != "native" ]; then
 fi
 
 command -v oc >/dev/null 2>&1 || { echo "ERROR: 'oc' CLI not found." >&2; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "ERROR: 'jq' CLI not found." >&2; exit 1; }
 oc whoami >/dev/null 2>&1 || { echo "ERROR: not logged in. Run 'oc login ...' first." >&2; exit 1; }
 echo "==> Project: $(oc project -q)"
 
@@ -56,18 +57,31 @@ deploy_module() {
     # Generate the manifests locally, then let oc stream the packaged app. This
     # avoids Fabric8's slow instantiatebinary upload path on remote clusters.
     ./mvnw -q -pl "$module" clean package -DskipTests
-    oc apply -f "$module/target/kubernetes/openshift.yml"
+    local manifest="$module/target/kubernetes/openshift.json"
+    # Create build prerequisites first. A Deployment created before its image
+    # exists enters ImagePullBackOff; on a redeploy it can also use an old tag.
+    jq '{apiVersion: "v1", kind: "List", items: map(select(.kind != "Deployment"))}' \
+      "$manifest" | oc apply -f -
     oc start-build "$app_name" --from-dir="$module/target/quarkus-app" --follow --wait
-    # The manifest is applied before the build and may resolve the mutable 1.0.0
-    # tag to its previous digest. Pin the Deployment to the digest just built.
-    local image_ref
-    image_ref="$(oc get istag "$app_name:1.0.0" -o jsonpath='{.image.dockerImageReference}')"
-    oc set image deployment/"$app_name" "$app_name=$image_ref"
+    local image_tag image_ref
+    image_tag="$(jq -er --arg app "$app_name" \
+      '.[] | select(.kind == "BuildConfig" and .metadata.name == $app) | .spec.output.to.name' \
+      "$manifest")"
+    image_ref="$(oc get istag "$image_tag" -o json | jq -er \
+      '.image.dockerImageReference | select(test("@sha256:[0-9a-f]{64}$"))')"
+    # Apply the Deployment once, already pinned to the image that just built.
+    jq --arg app "$app_name" --arg image "$image_ref" \
+      '{apiVersion: "v1", kind: "List", items: [
+        .[] | select(.kind == "Deployment") |
+        (.spec.template.spec.containers[] | select(.name == $app) | .image) = $image
+      ]}' "$manifest" | oc apply -f -
   else
     ./mvnw -q -pl "$module" clean package -DskipTests -Dnative \
       -Dquarkus.native.container-build=true -Dquarkus.openshift.deploy=true \
       -Dquarkus.openshift.build-timeout="$OPENSHIFT_BUILD_TIMEOUT"
   fi
+  # Stop on an unhealthy module before deploying tiers that depend on it.
+  oc rollout status deploy/"$app_name" --timeout=300s
 }
 
 if [ "$MODE" = "native" ]; then
@@ -80,10 +94,6 @@ oc rollout restart deploy/stateless-mcp-l7
 oc rollout status deploy/stateless-mcp-l7 --timeout=180s
 deploy_module agent stateless-agent
 echo "==> Agent configured with OPENAI_API_KEY from Secret/helios-openai"
-
-echo "==> Waiting for rollouts"
-oc rollout status deploy/stateless-mcp-quarkus --timeout=300s || true
-oc rollout status deploy/stateless-agent --timeout=300s || true
 
 ROUTE="$(oc get route stateless-agent -o jsonpath='{.spec.host}' 2>/dev/null || true)"
 echo

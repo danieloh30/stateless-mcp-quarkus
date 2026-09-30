@@ -28,6 +28,11 @@ export OPENAI_API_KEY=sk-...
 
 Use `./deploy-openshift.sh native` for a native build in a compatible build environment. The API key is stored in `Secret/helios-openai`; it is never baked into an image.
 
+Install `oc` and `jq` before running the script. JVM images are built inside OpenShift from
+the packaged applications, without local Podman. The script waits for each image build,
+pins the Deployment to the published digest, and waits for readiness before continuing.
+Build and rollout failures stop deployment instead of reporting success.
+
 ## 4. Prove horizontal scaling
 
 ```bash

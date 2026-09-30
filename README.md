@@ -275,6 +275,11 @@ export OPENAI_API_KEY=sk-...   # required; stored in Secret/helios-openai
 This applies the shared PostgreSQL (`k8s/postgres.yaml`) and deploys both modules. Generated
 manifests land in each module's `target/kubernetes/`.
 
+The deployment script requires `oc` and `jq`. In JVM mode it creates the build resources,
+uploads each packaged application for an OpenShift S2I build, then applies its Deployment
+with the published image digest. Application pods start only after their image exists;
+local Podman is not needed for this image build. A failed build or rollout stops the script.
+
 The script idempotently creates or refreshes `Secret/helios-openai` from the exported key. The
 generated Agent Deployment imports that Secret as `OPENAI_API_KEY`; the key is never baked into an
 image. If the variable is not exported, an existing Secret is reused, or deployment stops with a
