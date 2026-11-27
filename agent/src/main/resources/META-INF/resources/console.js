@@ -347,6 +347,7 @@ async function run(count, invalid = false) {
     !paused && runtime?.readyReplicas === 0 && Date.now() - observedAt < 6000;
   try {
     for (let i = 0; i < count; i++) {
+      if (generation !== runGeneration) return;
       status("#runStatus", `Executing ${name}: ${i + 1}/${count}…`);
       window.HeliosFlow.begin("tool");
       const started = performance.now();
@@ -373,10 +374,17 @@ async function run(count, invalid = false) {
         $("#calls").append(article);
         $("#consistency").textContent = "Errors present";
       }
+      if (i < count - 1) {
+        status(
+          "#runStatus",
+          "Showing the recorded reply · next call in 1.2 s (excluded from call timings)…",
+        );
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
     }
     status(
       "#runStatus",
-      `Completed ${count} attempt${count === 1 ? "" : "s"}. Errors are retained; calls were sequential and used identical arguments.`,
+      `Completed ${count} attempt${count === 1 ? "" : "s"}. Errors are retained; identical calls were sequential. Visual pacing is excluded from call timings.`,
     );
   } finally {
     busy = false;

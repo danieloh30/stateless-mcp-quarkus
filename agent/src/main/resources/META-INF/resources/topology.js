@@ -23,7 +23,7 @@
     return item;
   }
   function render() {
-    const mode = runtime?.environment || "dev";
+    const mode = runtime?.environment || "unknown";
     const [routing, name] = labels[mode] || ["Routing", "MCP fleet"];
     document.querySelector("#flowRoutingLabel").textContent = routing;
     document.querySelector("#flowFleetLabel").textContent = name;
