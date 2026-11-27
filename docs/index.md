@@ -8,7 +8,7 @@ hide:
   <div class="hero__copy">
     <p class="hero__eyebrow">Quarkus · Java 25 · Model Context Protocol</p>
     <h1>Agent intelligence.<br><span>Stateless infrastructure.</span></h1>
-    <p class="hero__lead">Build an OpenAI-powered supervisor that routes natural-language requests to specialist agents—and scales a fleet of MCP tool servers from zero to many without session affinity.</p>
+    <p class="hero__lead">Build an OpenAI-powered supervisor that routes natural-language requests to specialist agents—and runs interchangeable MCP tool replicas, with platform-configured scaling from zero to many.</p>
     <div class="hero__actions">
       <a class="md-button md-button--primary" href="getting-started/">Run Helios locally</a>
       <a class="md-button" href="architecture/">Explore the architecture</a>
@@ -30,7 +30,7 @@ hide:
   <div class="stat"><strong>5</strong><span>domain tools</span></div>
   <div class="stat"><strong>3</strong><span>specialist agents</span></div>
   <div class="stat"><strong>No affinity</strong><span>requests reach any replica</span></div>
-  <div class="stat"><strong>0→N</strong><span>Knative replicas</span></div>
+  <div class="stat"><strong>0→N</strong><span>configured Knative scaling</span></div>
 </div>
 
 ## Choose your path
@@ -69,15 +69,21 @@ hide:
     <p class="panel-label">MCP tier</p>
     <h3>Disposable compute, durable data</h3>
     <p>Identical Quarkus replicas expose validated business tools. They hold no session state, so a load balancer can send every call to a different instance.</p>
-    <ul><li>Streamable HTTP</li><li>Jakarta validation</li><li>Shared PostgreSQL state</li></ul>
+    <ul><li>Streamable HTTP</li><li>Typed contracts and input checks</li><li>Shared PostgreSQL state</li></ul>
   </div>
 </div>
+
+## Live request flow and same-call evidence
+
+The console now has **Ask**, **Fleet**, and **Protocol** views. Its top-right topology animates outbound actions in blue, recorded replies in teal, and failures in red. A tool response identifies its serving process; platform readiness is reported separately. AI tool paths appear when the completed execution trace returns.
+
+The visualization adapts to dev mode, the five-replica local cluster, the OpenShift fleet, and Knative. It illustrates application calls rather than packet capture or per-hop timing. Background observation does not invoke MCP tools.
 
 ## A demo you can see, not just describe
 
 <figure class="showcase">
   <img src="images/helios-control-tower.png" alt="Helios Control Tower console showing the stateless MCP fleet">
-  <figcaption><strong>Helios Control Tower</strong><span>Ask an agent, invoke raw tools, and watch successive requests rotate across ready replicas.</span></figcaption>
+  <figcaption><strong>Helios Control Tower</strong><span>Follow animated requests and replies, inspect actual specialist tools, and distinguish ready endpoints from replicas observed serving calls.</span></figcaption>
 </figure>
 
 <div class="cta-band">

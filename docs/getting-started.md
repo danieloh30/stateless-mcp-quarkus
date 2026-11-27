@@ -7,7 +7,7 @@ Run Helios as two development processes for the quickest feedback, or launch the
 - Java 25+
 - Quarkus CLI
 - Docker or Podman
-- An `OPENAI_API_KEY`
+- An `OPENAI_API_KEY` for natural-language questions and `start-cluster.sh`
 
 The model defaults to `gpt-5.6-sol`. Override it with `HELIOS_LLM_MODEL` when needed.
 
@@ -35,7 +35,8 @@ Open [localhost:8090](http://localhost:8090/). The MCP endpoint is available at 
 !!! note "The SPA runs in the agent module"
     In dev mode, `http://localhost:8080/` redirects to the MCP server's Dev UI. The console SPA
     runs at `http://localhost:8090/` and needs the second process above. Export `OPENAI_API_KEY`
-    in that second terminal; a missing key prevents the agent from starting. In the cluster
+    in that second terminal to enable natural-language questions. Without a key, the SPA and
+    direct tool calls still work; asking the agent returns a clear configuration message. In the cluster
     setup below, the SPA uses port `8080` instead.
 
 If dev mode appears stuck, check `curl http://localhost:8080/q/health/ready`. A response with
@@ -55,11 +56,22 @@ export OPENAI_API_KEY=sk-...
 open http://localhost:8080
 ```
 
-Choose a tool and select **Run 5×**. The serving instance changes while the business result stays the same.
+Open **2 · Fleet**, choose a tool, and select **Repeat 5 calls**. The console sends five identical, sequential business requests and compares their results. Each completed response carries its own replica evidence. A 1.2-second pause between calls makes the traffic visible; that pause is excluded from recorded call timings.
+
+All five local replicas can serve requests. In OpenShift, five calls need not visit five distinct processes; routing and observed process counts are shown as measured.
 
 ```bash
 ./stop-cluster.sh
 ```
+
+## Read the console
+
+- **Ask:** enter a question, read the answer, and expand the actual specialist tool executions. Inspect a step's arguments, business result, and protocol evidence.
+- **Fleet:** repeat a business lookup, compare results, or try an invalid tracking ID. Repeating five calls is disabled in single-server dev mode.
+- **Protocol:** inspect allowlisted headers and the logical JSON-RPC request from the same completed tool call. The expected protocol version is separate from observed evidence.
+- **Live request path:** follow the animated request and reply. Counts of ready endpoints and observed process IDs have different meanings. A last recorded reply remains historical evidence when readiness is zero.
+
+Use **Presentation mode** for larger text, **Dark theme** for the alternate palette, **Pause observation** to stop future background readiness checks, and **Reset evidence** to clear the displayed run. The UI supports reduced-motion preferences.
 
 ## Ask a natural-language question
 
@@ -69,7 +81,7 @@ curl -s localhost:8090/agent/ask \
   -d '{"question":"Where is shipment HLX-10032291 and will it arrive on time?"}'
 ```
 
-Try inventory, delivery estimate, carrier SLA, or regional exception questions next.
+The response includes the answer and a request-specific trace of actual tool executions. Try inventory, delivery estimate, carrier SLA, or regional exception questions next. Questions are limited to 2,000 characters and two concurrent requests; the agent has a 90-second deadline. Direct tool calls remain available when the AI provider is unavailable.
 
 ## Package the project
 
@@ -77,5 +89,17 @@ Try inventory, delivery estimate, carrier SLA, or regional exception questions n
 ./mvnw clean package
 ./mvnw clean package -Dnative
 ```
+
+## Verify changes
+
+Run `./mvnw verify` for the Java checks. To check the console, run:
+
+```bash
+npm ci
+npx playwright install chromium
+npm run test:spa
+```
+
+Browser checks cover all four environments, business-result consistency, safe rendering, duplicate-submit prevention, passive observation, topology evidence, mobile layout, and reduced motion. GitHub Actions runs both Java and browser checks.
 
 Continue with [Architecture](architecture.md) to understand the request path, or [Deployment](deployment.md) to move the fleet to OpenShift.
