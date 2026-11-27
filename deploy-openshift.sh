@@ -62,6 +62,28 @@ deploy_module() {
     # exists enters ImagePullBackOff; on a redeploy it can also use an old tag.
     jq '{apiVersion: "v1", kind: "List", items: map(select(.kind != "Deployment"))}' \
       "$manifest" | oc apply -f -
+    # ImageStream repository imports are asynchronous. Resolve the exact builder
+    # tag synchronously before start-build tries to consume it on a fresh project.
+    local builder_tag builder_stream builder_repository builder_namespace
+    builder_tag="$(jq -er --arg app "$app_name" \
+      '.[] | select(.kind == "BuildConfig" and .metadata.name == $app) |
+       .spec.strategy.sourceStrategy.from | select(.kind == "ImageStreamTag") | .name' \
+      "$manifest")"
+    builder_namespace="$(jq -r --arg app "$app_name" \
+      '.[] | select(.kind == "BuildConfig" and .metadata.name == $app) |
+       .spec.strategy.sourceStrategy.from.namespace // empty' "$manifest")"
+    if [ -z "$builder_namespace" ]; then
+      builder_namespace="$(oc project -q)"
+    fi
+    builder_stream="${builder_tag%:*}"
+    builder_repository="$(jq -er --arg stream "$builder_stream" \
+      '.[] | select(.kind == "ImageStream" and .metadata.name == $stream) |
+       .spec.dockerImageRepository | select(type == "string" and length > 0)' "$manifest")"
+    echo "==> Importing builder $builder_tag"
+    oc import-image "$builder_tag" -n "$builder_namespace" \
+      --from="$builder_repository:${builder_tag##*:}" --confirm
+    oc get istag "$builder_tag" -n "$builder_namespace" -o json | \
+      jq -e '.image.dockerImageReference | select(test("@sha256:[0-9a-f]{64}$"))' >/dev/null
     oc start-build "$app_name" --from-dir="$module/target/quarkus-app" --follow --wait
     local image_tag image_ref
     image_tag="$(jq -er --arg app "$app_name" \

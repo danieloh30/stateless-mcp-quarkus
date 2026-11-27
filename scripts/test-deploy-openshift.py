@@ -20,6 +20,8 @@ if args[:2] == ["apply", "-f"] and args[2] == "-":
 with open(os.environ["DEPLOY_TEST_LOG"], "a") as log:
     log.write(json.dumps(event) + "\\n")
 failure = os.environ.get("DEPLOY_TEST_FAILURE", "")
+if args[0] == "import-image" and failure == "import":
+    sys.exit(1)
 if args[0] == "start-build" and failure == "build":
     sys.exit(1)
 if args[:3] == ["rollout", "status", "deploy/stateless-mcp-quarkus"] and failure == "rollout":
@@ -27,7 +29,8 @@ if args[:3] == ["rollout", "status", "deploy/stateless-mcp-quarkus"] and failure
 if args[0] == "project":
     print("helios")
 elif args[:2] == ["get", "istag"]:
-    image = "" if failure == "image" else os.environ["DEPLOY_TEST_IMAGE"]
+    missing = failure == "image" or (failure == "builder" and args[2] == "custom-java:25")
+    image = "" if missing else os.environ["DEPLOY_TEST_IMAGE"]
     print(json.dumps({"image": {"dockerImageReference": image}}))
 elif args[:2] == ["get", "route"]:
     print("helios.example")
@@ -48,7 +51,11 @@ class DeploymentTest(unittest.TestCase):
                 # A different version ensures the script uses BuildConfig output.
                 resources = [
                     {"kind": "BuildConfig", "metadata": {"name": app},
-                     "spec": {"output": {"to": {"name": app + ":2.0.0"}}}},
+                     "spec": {"output": {"to": {"name": app + ":2.0.0"}},
+                              "strategy": {"sourceStrategy": {"from": {
+                                  "kind": "ImageStreamTag", "name": "custom-java:25"}}}}},
+                    {"kind": "ImageStream", "metadata": {"name": "custom-java"},
+                     "spec": {"dockerImageRepository": "registry.example/java-builder"}},
                     {"kind": "ImageStream", "metadata": {"name": app}},
                     {"kind": "Deployment", "metadata": {"name": app},
                      "spec": {"template": {"spec": {"containers": [
@@ -104,6 +111,25 @@ class DeploymentTest(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(self.deployments(events), [])
                 self.assertNotIn("Helios Control Tower", result.stdout)
+
+    def test_builder_tag_resolved_before_each_build(self):
+        result, events = self.run_deployment()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for index, event in enumerate(events):
+            if event["args"][0] == "start-build":
+                self.assertEqual(events[index - 2]["args"], [
+                    "import-image", "custom-java:25", "-n", "helios",
+                    "--from=registry.example/java-builder:25", "--confirm"])
+                self.assertEqual(events[index - 1]["args"], [
+                    "get", "istag", "custom-java:25", "-n", "helios", "-o", "json"])
+
+    def test_unavailable_builder_stops_before_build_or_deployment(self):
+        for failure in ("import", "builder"):
+            with self.subTest(failure=failure):
+                result, events = self.run_deployment(failure)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(any(event["args"][0] == "start-build" for event in events))
+                self.assertEqual(self.deployments(events), [])
 
     def test_failed_rollout_stops_before_agent(self):
         result, events = self.run_deployment("rollout")

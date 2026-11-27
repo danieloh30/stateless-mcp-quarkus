@@ -292,7 +292,8 @@ This applies the shared PostgreSQL (`k8s/postgres.yaml`) and deploys both module
 manifests land in each module's `target/kubernetes/`.
 
 The deployment script requires `oc` and `jq`. In JVM mode it creates the build resources,
-uploads each packaged application for an OpenShift S2I build, then applies its Deployment
+imports and verifies the required Java builder image tag before starting each OpenShift S2I
+build, uploads each packaged application, then applies its Deployment
 with the published image digest. Application pods start only after their image exists;
 local Podman is not needed for this image build. A failed build or rollout stops the script.
 
