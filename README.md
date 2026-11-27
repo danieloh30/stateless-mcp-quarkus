@@ -238,6 +238,22 @@ open http://localhost:8080
 ./mvnw clean package -Dnative        # GraalVM native — instant start, tiny memory
 ```
 
+The project uses **Quarkus 3.40.1.2** while MCP Server 2.1.0 depends on the Quarkus 3
+Jackson API. Dependabot temporarily excludes Quarkus 4 platform updates after the
+[`ObjectMapperCustomizer` failure in PR #28](https://github.com/danieloh30/stateless-mcp-quarkus/pull/28).
+The [Quarkus 4 compatibility workflow](.github/workflows/quarkus4-readiness.yml) runs
+daily at 06:30 Eastern and supports manual runs. It selects the latest stable Quarkus 4
+version shared by both platform BOMs and the Maven plugin, plus the latest stable MCP
+Server release, then runs `clean verify` in a temporary copy. Logs, candidate POMs and
+test reports are uploaded as workflow artifacts.
+
+Scheduled and manual checks remain red while blocked. PR checks accept only the known
+MCP class-loading failure; other regressions and monitor errors fail. A green compatibility
+probe requires both existing module suites and packaging to pass. If the MCP blocker
+disappears but application migration is still needed (including the agent's Jackson API),
+the check reports a regression. Review the evidence and complete that migration before
+removing the restriction in `.github/dependabot.yml`; the monitor does not merge upgrades.
+
 ## Deploy to OpenShift / Kubernetes (native + scale-to-zero)
 
 The `quarkus-openshift` extension generates the application manifests at build time. The **agent**

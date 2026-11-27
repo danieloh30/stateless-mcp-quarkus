@@ -13,6 +13,12 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+    # MCP server 2.1.0 requires the Quarkus 3 Jackson API (see PR #28).
+    # quarkus4-readiness.yml probes releases daily; review its passing evidence
+    # before removing this restriction and migrating the application.
+    ignore:
+      - dependency-name: "io.quarkus.platform:*"
+        versions: [">=4.0.0"]
     groups:
       quarkus:
         patterns:

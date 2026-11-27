@@ -1,6 +1,8 @@
 target/
 build/
 *.class
+__pycache__/
+compatibility-report/
 # Keep the Maven wrapper (.mvn/wrapper/) tracked so ./mvnw works out of the box.
 
 # IDEs

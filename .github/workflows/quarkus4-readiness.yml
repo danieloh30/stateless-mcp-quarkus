@@ -1,0 +1,55 @@
+name: Quarkus 4 MCP compatibility
+
+on:
+  schedule:
+    - cron: "30 6 * * *"
+      timezone: America/New_York
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/quarkus4_readiness*.py"
+      - ".github/workflows/quarkus4-readiness.yml"
+      - ".github/dependabot.yml"
+      - "pom.xml"
+      - "mcp-server/**"
+      - "agent/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quarkus4-readiness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test monitor safeguards
+        run: python3 -m unittest discover -s scripts -p 'quarkus4_readiness_test.py' -v
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+      - name: Probe released Quarkus 4 and MCP candidates
+        env:
+          ALLOW_KNOWN_BLOCKER: ${{ github.event_name == 'pull_request' }}
+        run: |
+          args=(--output compatibility-report)
+          # Daily/manual runs stay red until both modules pass. PRs may accept
+          # only the known upstream blocker while validating the monitor.
+          if [[ "$ALLOW_KNOWN_BLOCKER" == true ]]; then args+=(--allow-known-blocker); fi
+          python3 scripts/quarkus4_readiness.py "${args[@]}"
+      - name: Publish compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quarkus4-mcp-compatibility-${{ github.run_id }}
+          path: compatibility-report/
+          if-no-files-found: warn
+          retention-days: 14
