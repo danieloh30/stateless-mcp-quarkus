@@ -54,6 +54,8 @@ services:
     image: ${AGENT_IMAGE:-helios-agent:latest}
     environment:
       MCP_FLEET_URL: http://lb:8080/mcp
+      HELIOS_DEMO_ENVIRONMENT: compose
+      MCP_FLEET_DISCOVERY_HOST: mcp1,mcp2,mcp3,mcp4,mcp5
       # The agent's supervisor + sub-agents need an OpenAI key; passed from your shell.
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       HELIOS_LLM_MODEL: ${HELIOS_LLM_MODEL}

@@ -204,7 +204,7 @@ quarkus dev
 ```
 
 Open the console at **<http://localhost:8090/>**. In dev there is one MCP server, so “Run 5×” shows
-a single replica — same stateless guarantee, one server.
+a single replica — one server; it is not a multi-replica proof.
 
 Other endpoints: MCP at `http://localhost:8080/mcp`, health at `/q/health` on each app.
 
@@ -235,7 +235,7 @@ open http://localhost:8080
 
 ```bash
 ./mvnw clean package                 # builds both modules
-./mvnw clean package -Dnative        # GraalVM native — instant start, tiny memory
+./mvnw clean package -Dnative        # GraalVM native — measure native startup and memory for your workload
 ```
 
 The project uses **Quarkus 3.40.1.2** while MCP Server 2.1.0 depends on the Quarkus 3
@@ -427,3 +427,53 @@ Built with [Quarkus](https://quarkus.io), the
 [Quarkus MCP Server](https://github.com/quarkiverse/quarkus-mcp-server), and
 [Quarkus LangChain4j](https://docs.quarkiverse.io/quarkus-langchain4j/dev/) (agentic `@Agent` /
 `@SupervisorAgent` + MCP client, on OpenAI).
+
+
+## Presenter console: environment impact
+
+The launch sequence stays **dev mode → `./start-cluster.sh` → OpenShift → `./knative-mode.sh enable`**.
+The app identifies its stage; packaged OpenShift mode is the default, Compose sets `HELIOS_DEMO_ENVIRONMENT=compose`, and Quarkus dev/test profiles select `dev`.
+
+| Capability | Dev | Local cluster | OpenShift fleet | Knative |
+| --- | --- | --- | --- | --- |
+| Ask + actual specialist-tool trace | Yes, with API key | Yes | Yes | Yes, may activate fleet |
+| Direct business lookup + protocol evidence | Yes | Yes | Yes | Yes, explicitly activates fleet |
+| Repeat selected lookup five times | Disabled: single instance | Yes | Yes | Yes; compares first and subsequent calls |
+| Readiness observation | Unknown unless configured | DNS address estimate | Ready endpoints from Kubernetes API | Ready endpoints from Kubernetes API |
+| Opening the SPA discovers MCP tools | Yes | Yes | Yes | No: discovery is explicit |
+| Dynamic topology and request/reply animation | Yes, direct path | Yes, L7 + five slots | Yes, L7 + observed processes | Yes, Knative + zero-ready state |
+| Presentation mode, reset, pause observation | Yes | Yes | Yes | Yes |
+| Platform scale-to-zero | No | No | No | Requires Knative configuration |
+
+**Ask** shows the answer and actual executed tool bridges (specialist, arguments, result, serving replica). The response trace is scoped to the question ID, and its temporary collection is removed afterward. The framework monitor retains at most eight recent sessions in memory. No hidden model reasoning is exposed. Questions are bounded to 2,000 characters, at most two can execute concurrently, and the HTTP operation has a 90-second application deadline.
+
+**Fleet** repeats a *business tool*, not `getServerInstance`. Diagnostic evidence lives in MCP result `_meta["dev.helios/evidence"]`; it is separate from the business fields used for comparison and is stripped from the text returned to the LLM. Matching results do not guarantee every replica was visited. Calls are sequential; the UI retains failed attempts and distinguishes ready endpoints from observed serving instances.
+
+**Protocol** displays allowlisted headers and a logical request captured at tool execution. It is not a packet capture: HTTP proxy headers, credentials, and unrelated metadata are deliberately excluded. The displayed observed version and transient-connection flag come from the serving MCP server. Protocol tests separately assert that modern responses do not mint `Mcp-Session-Id`. The SDK strips metadata when it throws a tool error; those errors remain typed, but the UI correctly reports no replica/protocol evidence for them.
+
+**Knative** observations use the Kubernetes API, not the MCP endpoint. `k8s/mcp-l7-proxy.yaml`, already applied by the deployment script, creates `helios-agent` and a namespace-scoped role permitting only `get` on the two named headless-service Endpoints objects. A zero-ready-endpoint count does not itself prove zero running pods: confirm that in the OpenShift console. Authentication, DNS, or API failures display **unknown**, never an invented zero. A recent zero-ready observation followed by invocation is labeled as an end-to-end activation measurement, not pure JVM startup time.
+
+Pause stops SPA observation only. In serverless mode, retain the existing heartbeat suppression and Agent probe change in `knative-mode.sh`; other tabs and clients can still generate traffic. Discovery is intentionally user-triggered when the page opens in Knative mode.
+
+### Fifteen-minute rehearsal
+
+1. **Dev, 0–3 min:** one question, its actual tool trace, then the Protocol view and an invalid tracking ID.
+2. **Local cluster, 3–7 min:** repeat the same business lookup; compare results and serving replicas. Optionally replace a replica from the terminal and repeat.
+3. **OpenShift/Knative, 7–13 min:** show platform readiness, enable serverless, observe idle behavior, then invoke and compare first/subsequent timings.
+4. **13–15 min:** buffer. Build images and prepare the cluster before presenting.
+
+### Verification
+
+`./mvnw verify` exercises valid modern discovery/calls, same-call evidence, tool validation, missing headers, header/body mismatches, and SPA startup/environment metadata. As before, server tests need a container runtime for the database, or an explicit test datasource.
+
+Optional browser checks (no frontend build step is needed to run the app):
+
+```bash
+npm ci
+npx playwright install chromium
+npm run test:spa
+```
+
+These checks use isolated API fixtures for dev, Compose, OpenShift and Knative. They exercise actual selected-tool repetition, result comparison, safe rendering, duplicate submission protection, explicit serverless discovery, and paused observation. They do not replace verification against a running fleet. To use an installed Chrome, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to its executable path.
+
+The top-right topology follows explicit browser requests and completed tool replies. Blue markers indicate outbound actions, teal indicates recorded replies, and red indicates failures. A replica is highlighted only from same-call server evidence. AI questions animate the Browser → Agent leg while pending; their completed tool paths appear when the monitored trace returns. This is application-level visualization, not packet capture or per-hop timing. In Knative mode, zero ready endpoints are drawn as an idle outline, while historical observed-process counts remain separate. The visualization never polls or wakes the MCP fleet itself and respects reduced-motion preferences.

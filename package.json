@@ -1,0 +1,10 @@
+{
+  "name": "helios-console-checks",
+  "private": true,
+  "scripts": {
+    "test:spa": "node scripts/spa-smoke.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

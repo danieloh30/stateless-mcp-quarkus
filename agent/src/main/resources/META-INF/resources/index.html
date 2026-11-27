@@ -1,497 +1,185 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="light">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Helios Control Tower — Agent + Stateless MCP Fleet</title>
-<style>
-  :root {
-    --bg: #eef1f8; --bg-grad-1: #ffffff; --bg-grad-2: #e7ebf6;
-    --panel: rgba(255, 255, 255, 0.72); --panel-solid: #ffffff;
-    --border: rgba(20, 30, 70, 0.10); --text: #141a2e; --muted: #5a6480;
-    --sun-1: #f59e0b; --sun-2: #ef4444; --indigo: #4f46e5; --teal: #0ea5a4;
-    --ok: #059669; --warn: #d97706; --err: #dc2626;
-    --code-bg: #0f1530; --shadow: 0 18px 45px rgba(28, 40, 90, 0.12);
-  }
-  [data-theme="dark"] {
-    --bg: #070b18; --bg-grad-1: #0d1428; --bg-grad-2: #070b18;
-    --panel: rgba(20, 28, 54, 0.62); --panel-solid: #121a33;
-    --border: rgba(150, 170, 230, 0.14); --text: #eaeefb; --muted: #9aa6c8;
-    --code-bg: #060a18; --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; }
-  body {
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: var(--text);
-    background:
-      radial-gradient(1200px 600px at 82% -8%, rgba(245, 158, 11, 0.18), transparent 60%),
-      radial-gradient(1000px 620px at -6% 8%, rgba(79, 70, 229, 0.16), transparent 55%),
-      linear-gradient(160deg, var(--bg-grad-1), var(--bg-grad-2));
-    min-height: 100vh; -webkit-font-smoothing: antialiased;
-  }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 26px 22px 60px; }
-  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .brand { display: flex; align-items: center; gap: 14px; }
-  .logo { width: 46px; height: 46px; border-radius: 14px; flex: none;
-    background: conic-gradient(from 210deg, var(--sun-1), var(--sun-2), var(--indigo), var(--sun-1));
-    box-shadow: 0 8px 22px rgba(239, 68, 68, 0.35); position: relative; }
-  .logo::after { content: ""; position: absolute; inset: 12px; border-radius: 50%; background: var(--panel-solid); }
-  .brand h1 { font-size: 20px; margin: 0; letter-spacing: -0.3px; }
-  .brand p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
-  .spacer { flex: 1; }
-  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px;
-    font-size: 12.5px; font-weight: 600; background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(8px); }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px rgba(5,150,105,.15); }
-  .pulse { animation: pulse 1.8s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
-  .icon-btn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border);
-    background: var(--panel); cursor: pointer; font-size: 17px; color: var(--text); }
-  .icon-btn:hover { border-color: var(--indigo); }
-  .hero { margin-top: 22px; padding: 22px; border-radius: 20px; background: var(--panel);
-    border: 1px solid var(--border); box-shadow: var(--shadow); backdrop-filter: blur(12px);
-    display: grid; grid-template-columns: 1.15fr 1fr; gap: 22px; }
-  .hero h2 { margin: 2px 0 6px; font-size: 17px; }
-  .hero .lead { color: var(--muted); font-size: 13.5px; line-height: 1.6; margin: 0 0 16px; }
-  .tags { display: flex; flex-wrap: wrap; gap: 8px; }
-  .tag { font-size: 11.5px; font-weight: 600; padding: 5px 10px; border-radius: 8px; background: rgba(79,70,229,.10); color: var(--indigo); }
-  [data-theme="dark"] .tag { background: rgba(120,130,255,.16); color: #b9c0ff; }
-  .diagram { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 16px;
-    border-radius: 16px; background: var(--panel-solid); border: 1px solid var(--border); }
-  .node { text-align: center; font-size: 10.5px; color: var(--muted); flex: none; }
-  .node .box { width: 58px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
-    font-size: 19px; margin: 0 auto 6px; border: 1px solid var(--border); background: var(--panel); }
-  .pods { display: flex; flex-direction: column; gap: 5px; }
-  .pod { width: 58px; height: 18px; border-radius: 7px; display:flex; align-items:center; justify-content:center;
-    font-size: 9.5px; font-weight: 700; color: #fff; background: linear-gradient(120deg, var(--sun-1), var(--sun-2)); }
-  .pod.hit { animation: pod-hit .45s ease-out; }
-  .pod.zero { background: repeating-linear-gradient(45deg,#c7cde0,#c7cde0 5px,#dbe0ee 5px,#dbe0ee 10px); color: var(--muted); }
-  @keyframes pod-hit { 0% { transform: scale(.82); box-shadow: 0 0 0 0 rgba(14,165,164,.65); }
-    100% { transform: scale(1); box-shadow: 0 0 0 8px rgba(14,165,164,0); } }
-  .flow { flex: 1; height: 2px; min-width: 12px; background: linear-gradient(90deg, var(--indigo), var(--teal)); position: relative; opacity:.6; }
-  .flow::after { content:"›"; position:absolute; right:-4px; top:-12px; color: var(--teal); font-size: 20px; }
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px; }
-  .stat { padding: 14px 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--border);
-    box-shadow: var(--shadow); backdrop-filter: blur(10px); }
-  .stat .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-  .stat .v { font-size: 22px; font-weight: 800; margin-top: 4px; letter-spacing: -.5px; }
-  .stat .v small { font-size: 12px; font-weight: 600; color: var(--muted); }
-  .grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 20px; margin-top: 22px; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); backdrop-filter: blur(12px); }
-  .card h3 { margin: 0; padding: 16px 18px; font-size: 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
-  .card h3 .badge { margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600; }
-  .card-body { padding: 14px 16px; }
-  .tool { width: 100%; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 12px 13px;
-    border-radius: 14px; border: 1px solid transparent; background: transparent; color: var(--text); margin-bottom: 6px; transition: .15s; }
-  .tool:hover { background: var(--panel-solid); border-color: var(--border); }
-  .tool.active { border-color: var(--indigo); background: var(--panel-solid); }
-  .tool .ic { width: 38px; height: 38px; border-radius: 11px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 18px; background: rgba(14,165,164,.12); }
-  .tool .t { font-weight: 700; font-size: 13.5px; }
-  .tool .d { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-  .tool code { font-size: 11px; color: var(--indigo); }
-  label { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin: 10px 0 5px; }
-  input { width: 100%; padding: 10px 12px; border-radius: 11px; border: 1px solid var(--border); background: var(--panel-solid);
-    color: var(--text); font-size: 13.5px; font-family: inherit; }
-  input:focus { outline: none; border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
-  .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
-  button.primary, button.ghost { border: none; cursor: pointer; font-weight: 700; font-size: 13px; padding: 11px 16px; border-radius: 12px; font-family: inherit; }
-  button.primary { color: #fff; background: linear-gradient(120deg, var(--sun-1), var(--sun-2)); box-shadow: 0 8px 20px rgba(239,68,68,.30); }
-  button.ghost { background: var(--panel-solid); color: var(--text); border: 1px solid var(--border); }
-  button:hover { filter: brightness(1.04); }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px; }
-  .pill { font-size: 11.5px; font-weight: 700; padding: 5px 11px; border-radius: 999px; background: var(--panel-solid);
-    border: 1px solid var(--border); display: inline-flex; gap: 6px; align-items: center; }
-  .pill.ok { color: var(--ok); } .pill.err { color: var(--err); }
-  pre { margin: 0; background: var(--code-bg); color: #e6ebff; border-radius: 14px; padding: 15px 16px; font-size: 12.5px;
-    line-height: 1.55; overflow: auto; max-height: 340px; font-family: "SF Mono", "JetBrains Mono", Menlo, monospace; }
-  .k-key { color: #7dd3fc; } .k-str { color: #86efac; } .k-num { color: #fca5a5; } .k-bool { color: #fbbf24; } .k-null { color: #94a3b8; }
-  .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 30px 10px; }
-  .burst { margin-top: 12px; display: none; } .burst.show { display: block; }
-  .brow { display: flex; align-items: center; gap: 10px; font-size: 12px; padding: 7px 10px; border-radius: 10px;
-    background: var(--panel-solid); border: 1px solid var(--border); margin-bottom: 6px; }
-  .brow .n { font-weight: 800; color: var(--indigo); width: 20px; }
-  .brow .id { font-family: monospace; font-weight: 700; }
-  .brow .lat { margin-left: auto; color: var(--muted); }
-  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 34px; }
-  footer a { color: var(--indigo); text-decoration: none; }
-  @media (max-width: 900px) { .hero, .grid { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2, 1fr); } }
-</style>
-</head>
-<body>
-<div class="wrap">
-  <header>
-    <div class="brand">
-      <div class="logo"></div>
-      <div>
-        <h1>Helios Control Tower</h1>
-        <p>Agent app · MCP client → stateless MCP fleet · Quarkus</p>
-      </div>
-    </div>
-    <div class="spacer"></div>
-    <div class="chip"><span class="dot pulse"></span> <span id="transport">connecting…</span></div>
-    <div class="chip" id="instanceChip" title="The MCP server replica currently serving the agent">⬡ <span id="instanceId">—</span></div>
-    <button class="icon-btn" id="themeToggle" title="Toggle theme">◐</button>
-  </header>
-
-  <section class="hero">
-    <div>
-      <h2>An agent in front of a stateless MCP fleet</h2>
-      <p class="lead">
-        This console is the <strong>agent app</strong>. It calls a server-side
-        <strong>MCP client</strong> (managed <code>McpClient</code>), which reaches a fleet of
-        <strong>stateless MCP servers</strong> <span id="routingDescription">through a load balancer</span>. Because the servers keep no
-        session state, every <code>tools/call</code> can land on a different replica — the platform
-        load-balances trivially and <strong>scales to zero</strong> when idle. Built on Quarkus;
-        tool data lives in a shared PostgreSQL.
-      </p>
-      <div class="tags">
-        <span class="tag" id="topologyTag">Agent → MCP client → L7 → fleet</span>
-        <span class="tag">Stateless HTTP</span>
-        <span class="tag">Scale to Zero</span>
-        <span class="tag">PostgreSQL lookups</span>
-        <span class="tag">AOT / Native-ready</span>
-      </div>
-    </div>
-    <div class="diagram" id="topologyDiagram" title="browser → agent → MCP client → L7 → stateless replicas → shared DB">
-      <div class="node"><div class="box">🖥️</div>Agent<br>(this UI)</div>
-      <div class="flow"></div>
-      <div class="node"><div class="box">🔌</div>MCP<br>Client</div>
-      <div class="flow"></div>
-      <div class="node"><div class="box" id="routingIcon">⚖️</div><span id="routingLabel">L7</span></div>
-      <div class="flow"></div>
-      <div class="node">
-        <div class="pods" id="fleetPods"><div class="pod zero">—</div></div>
-        <div style="margin-top:6px"><span id="fleetModeLabel">Stateless fleet</span><br>
-          <span id="fleetReadyLabel">discovering ready pods…</span><br>
-          <span id="fleetLabel">waiting for requests</span>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Helios Control Tower</title>
+    <link rel="stylesheet" href="console.css" />
+    <link rel="stylesheet" href="topology.css" />
+    <script src="topology.js" defer></script>
+    <script src="console.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">GOING STATELESS · HELIOS LOGISTICS</p>
+          <h1>Helios Control Tower</h1>
+          <p>Browser → agent / MCP client → tool fleet → shared PostgreSQL</p>
         </div>
-      </div>
-      <div class="flow"></div>
-      <div class="node"><div class="box">🗄️</div>Postgres</div>
-    </div>
-  </section>
-
-  <div class="stats">
-    <div class="stat"><div class="k">Serving Replica</div><div class="v" id="stInstance">—</div></div>
-    <div class="stat"><div class="k">Replica Uptime</div><div class="v" id="stUptime">—</div></div>
-    <div class="stat"><div class="k">MCP Tools</div><div class="v" id="stTools">—</div></div>
-  </div>
-
-  <div class="card" style="margin-top:22px">
-    <h3>💬 Ask the Agent <span class="badge">supervisor → specialist sub-agents → MCP fleet</span></h3>
-    <div class="card-body">
-      <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">
-        Ask a logistics question in plain English. A <strong>supervisor agent</strong> (OpenAI)
-        routes it to the right specialist — <em>Shipment</em>, <em>Inventory</em>, or
-        <em>Exceptions</em> — each of which calls the stateless MCP fleet for live data.
-      </p>
-      <div class="tags" id="askExamples" style="margin-bottom:10px">
-        <span class="tag" role="button">Where is shipment HLX-10032291 and will it be on time?</span>
-        <span class="tag" role="button">How much stock of SKU-COLD-4521 is available?</span>
-        <span class="tag" role="button">What open exceptions need attention in APAC?</span>
-        <span class="tag" role="button">Estimate FRA → YYZ for 620 kg and check HELIOS-AIR's SLA.</span>
-      </div>
-      <input id="askInput" placeholder="Ask about shipments, inventory, lanes, carriers, or exceptions…"
-             autocomplete="off" />
-      <div class="btn-row">
-        <button class="primary" id="askBtn">Ask the agent</button>
-      </div>
-      <div id="askResult"></div>
-    </div>
-  </div>
-
-  <div class="grid">
-    <div class="card">
-      <h3>🧰 Tool Catalog <span class="badge" id="catBadge"></span></h3>
-      <div class="card-body" id="toolList"><div class="empty">Discovering tools from the fleet…</div></div>
-    </div>
-    <div class="card">
-      <h3>▶️ Invoke <span class="badge">agent → MCP client → fleet</span></h3>
-      <div class="card-body" id="invokePanel">
-        <div class="empty">Select a tool on the left. The agent calls it on the fleet via MCP.</div>
-      </div>
-    </div>
-  </div>
-
-  <footer>
-    Helios Logistics is a fictional enterprise for the talk
-    <em>“Going Stateless: Scaling MCP Servers to Cloud-Native Java &amp; HTTP.”</em><br>
-    The agent reaches the fleet with a managed <code>McpClient</code> (quarkus-langchain4j-mcp) ·
-    Built with <a href="https://quarkus.io" target="_blank" rel="noopener">Quarkus</a>.
-  </footer>
-</div>
-
-<script>
-  const $ = (s) => document.querySelector(s);
-  let tools = [], selected = null;
-  let burstEnabled = false;
-  let scaleToZero = false;
-  let readyReplicas = null;
-  let displayedBurstCount = null;
-  const observedReplicas = new Set();
-
-  // Friendly labels/icons + example args for each tool.
-  const META = {
-    getShipmentStatus:    { title: "Track a Shipment", icon: "📦",  sample: { trackingId: "HLX-10032291" } },
-    getWarehouseInventory:{ title: "Check Inventory",  icon: "🏬",  sample: { sku: "SKU-COLD-4521" } },
-    estimateDelivery:     { title: "Estimate a Lane",  icon: "✈️",  sample: { originHub: "FRA", destinationHub: "YYZ", weightKg: 620 } },
-    getCarrierSla:        { title: "Carrier SLA",      icon: "📊",  sample: { carrierId: "HELIOS-AIR" } },
-    listOpenExceptions:   { title: "Open Exceptions",  icon: "⚠️",  sample: { region: "APAC" } },
-  };
-
-  const savedTheme = localStorage.getItem("helios-theme");
-  if (savedTheme) document.documentElement.setAttribute("data-theme", savedTheme);
-  $("#themeToggle").addEventListener("click", () => {
-    const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    localStorage.setItem("helios-theme", next);
-  });
-
-  async function getJson(url) { const r = await fetch(url); if (!r.ok) throw new Error((await r.json()).error || r.status); return r.json(); }
-  async function postJson(url, body) {
-    const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "request failed");
-    return data;
-  }
-
-  function hl(obj) {
-    const json = JSON.stringify(obj, null, 2);
-    return json.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-        (m) => {
-          let cls = "k-num";
-          if (/^"/.test(m)) cls = /:$/.test(m) ? "k-key" : "k-str";
-          else if (/true|false/.test(m)) cls = "k-bool";
-          else if (/null/.test(m)) cls = "k-null";
-          return `<span class="${cls}">${m}</span>`;
-        });
-  }
-  function fmtUptime(ms) { const s = Math.floor(ms / 1000); return s < 60 ? s + "s" : Math.floor(s/60) + "m " + (s%60) + "s"; }
-  function burstRequestCount() {
-    if (scaleToZero) return Math.max(readyReplicas || 0, 1);
-    return readyReplicas > 0 ? readyReplicas : 5;
-  }
-  function burstButtonLabel() { return `Run ${burstRequestCount()}× (statelessness)`; }
-
-  function renderFleet(activeId) {
-    const ids = [...observedReplicas];
-    $("#fleetPods").innerHTML = ids.length
-      ? ids.map((id) => `<div class="pod${id === activeId ? " hit" : ""}" title="${id}">${id.replace(/^helios-/, "").slice(0, 8)}</div>`).join("")
-      : `<div class="pod zero">—</div>`;
-    $("#fleetLabel").textContent = ids.length
-      ? `${ids.length} replica${ids.length === 1 ? "" : "s"} observed`
-      : "waiting for requests";
-  }
-
-  function observeInstance(si) {
-    observedReplicas.add(si.instanceId);
-    $("#transport").textContent = si.transport;
-    $("#instanceId").textContent = si.instanceId;
-    $("#stInstance").textContent = String(si.instanceId).replace("helios-", "");
-    $("#stUptime").textContent = fmtUptime(si.uptimeMs);
-    renderFleet(si.instanceId);
-  }
-
-  async function refreshInstance() {
-    try {
-      const si = await getJson("agent/instance");
-      observeInstance(si);
-    } catch (e) { $("#transport").textContent = "fleet unreachable"; }
-  }
-
-  async function loadCatalog() {
-    try {
-      tools = await getJson("agent/catalog");
-      $("#stTools").textContent = tools.length;
-      $("#catBadge").textContent = tools.length + " tools";
-      $("#toolList").innerHTML = tools.map((t) => {
-        const m = META[t.name] || { title: t.name, icon: "🔧" };
-        return `<button class="tool" data-name="${t.name}">
-          <div class="ic">${m.icon}</div>
-          <div><div class="t">${m.title}</div><div class="d">${t.description || ""}</div><code>${t.name}()</code></div>
-        </button>`;
-      }).join("");
-      document.querySelectorAll(".tool").forEach((el) => el.addEventListener("click", () => select(el.dataset.name)));
-    } catch (e) {
-      $("#toolList").innerHTML = `<div class="empty">Could not reach the agent: ${e.message}</div>`;
-    }
-  }
-
-  async function loadRuntime() {
-    try {
-      const runtime = await getJson("agent/runtime");
-      const previousScaleToZero = scaleToZero;
-      burstEnabled = runtime.burstEnabled === true;
-      scaleToZero = runtime.scaleToZero === true;
-      if (previousScaleToZero !== scaleToZero) {
-        observedReplicas.clear();
-        renderFleet();
-      }
-      $("#routingDescription").textContent = scaleToZero
-        ? "through Knative Serving"
-        : "through an L7 load balancer";
-      $("#topologyTag").textContent = scaleToZero
-        ? "Agent → MCP client → Knative → revision"
-        : "Agent → MCP client → L7 → fleet";
-      $("#topologyDiagram").title = scaleToZero
-        ? "browser → agent → MCP client → Knative Serving → scale-to-zero revision → shared DB"
-        : "browser → agent → MCP client → L7 → stateless replicas → shared DB";
-      $("#routingIcon").textContent = scaleToZero ? "☁️" : "⚖️";
-      $("#routingLabel").textContent = scaleToZero ? "Knative" : "L7";
-      $("#fleetModeLabel").textContent = scaleToZero ? "Knative revision" : "Stateless fleet";
-      readyReplicas = Number.isInteger(runtime.readyReplicas) ? runtime.readyReplicas : null;
-      $("#fleetReadyLabel").textContent = readyReplicas == null
-        ? "ready replicas unavailable"
-        : `${readyReplicas} ready replica${readyReplicas === 1 ? "" : "s"}`;
-      const burstBtn = $("#burstBtn");
-      if (burstBtn && !burstBtn.disabled) burstBtn.textContent = burstButtonLabel();
-      const currentCount = burstRequestCount();
-      if (displayedBurstCount !== null && displayedBurstCount !== currentCount) {
-        const burstBox = $("#burst");
-        if (burstBox) {
-          burstBox.classList.remove("show");
-          burstBox.innerHTML = "";
-        }
-        displayedBurstCount = null;
-      }
-    } catch (e) {
-      burstEnabled = false;
-    }
-  }
-
-  function select(name) {
-    selected = tools.find((t) => t.name === name);
-    const m = META[name] || { title: name, sample: {} };
-    document.querySelectorAll(".tool").forEach((el) => el.classList.toggle("active", el.dataset.name === name));
-    const fields = (selected.params || []).map((k) => {
-      const def = (m.sample && m.sample[k] != null) ? m.sample[k] : "";
-      const isNum = typeof (m.sample || {})[k] === "number";
-      return `<label>${k} <span style="color:var(--err)">*</span></label>
-        <input data-arg="${k}" data-num="${isNum}" value="${def}" placeholder="${k}" />`;
-    }).join("");
-    $("#invokePanel").innerHTML = `
-      <div style="font-weight:700;font-size:13.5px">${m.title}
-        <code style="color:var(--indigo);font-size:11.5px">${name}()</code></div>
-      <div style="font-size:12px;color:var(--muted);margin-top:3px">${selected.description || ""}</div>
-      ${fields}
-      <div class="btn-row">
-        <button class="primary" id="runBtn">Run tool</button>
-        ${burstEnabled ? `<button class="ghost" id="burstBtn" title="Send one request per ready replica and observe which replicas serve them">${burstButtonLabel()}</button>` : ""}
-      </div>
-      <div id="result"></div>
-      <div class="burst" id="burst"></div>`;
-    $("#runBtn").addEventListener("click", run);
-    if (burstEnabled) $("#burstBtn").addEventListener("click", burst);
-  }
-
-  function collectArgs() {
-    const args = {};
-    document.querySelectorAll("[data-arg]").forEach((el) => {
-      args[el.dataset.arg] = el.dataset.num === "true" && el.value !== "" ? Number(el.value) : el.value;
-    });
-    return args;
-  }
-
-  async function run() {
-    const btn = $("#runBtn"); btn.disabled = true; btn.textContent = "Running…";
-    $("#burst").classList.remove("show");
-    const start = performance.now();
-    try {
-      const data = await postJson("agent/invoke/" + selected.name, collectArgs());
-      const ms = Math.round(performance.now() - start);
-      $("#result").innerHTML = `
-        <div class="meta">
-          <span class="pill ok">✓ agent → fleet</span>
-          <span class="pill">⏱ ${ms} ms round-trip</span>
-          <span class="pill">no session</span>
+        <div class="controls">
+          <button id="theme" aria-pressed="false">Dark theme</button>
+          <button id="presentation" aria-pressed="false">
+            Presentation mode</button
+          ><button id="pause" aria-pressed="false">Pause observation</button
+          ><button id="reset">Reset evidence</button>
         </div>
-        <pre>${hl(data.result)}</pre>`;
-    } catch (e) {
-      $("#result").innerHTML = `
-        <div class="meta"><span class="pill err">✕ ${e.message || e}</span></div>
-        <div style="font-size:12px;color:var(--muted)">Validation runs on the MCP server before any DB lookup — a stateless request in, a clean error out.</div>`;
-    } finally { btn.disabled = false; btn.textContent = "Run tool"; }
-  }
-
-  async function burst() {
-    const btn = $("#burstBtn");
-    const box = $("#burst");
-    const count = burstRequestCount();
-    displayedBurstCount = count;
-    btn.disabled = true;
-    btn.textContent = `Running 0/${count}…`;
-    observedReplicas.clear();
-    renderFleet();
-    box.classList.add("show");
-    const routingNote = scaleToZero
-      ? "Knative wakes the revision on demand; the request count follows the ready replica count."
-      : "The L7 proxy creates a fresh upstream connection per request, so multiple ready replicas can serve the burst; selection is load-balanced, not guaranteed to visit every pod.";
-    box.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 8px">
-      ${count} independent request${count === 1 ? "" : "s"} through the agent's MCP client — no session, no ordering.
-      ${routingNote}</div>`;
-    try {
-      for (let i = 1; i <= count; i++) {
-        const start = performance.now();
-        try {
-          const si = await getJson("agent/instance?wake=true");
-          const ms = Math.round(performance.now() - start);
-          observeInstance(si);
-          box.insertAdjacentHTML("beforeend",
-            `<div class="brow"><span class="n">#${i}</span><span class="id">⬡ ${si.instanceId}</span><span class="lat">${ms} ms</span></div>`);
-        } catch (e) {
-          box.insertAdjacentHTML("beforeend", `<div class="brow"><span class="n">#${i}</span><span>error</span></div>`);
-        }
-        btn.textContent = `Running ${i}/${count}…`;
-      }
-    } finally {
-      btn.disabled = false;
-      btn.textContent = burstButtonLabel();
-    }
-  }
-
-  async function ask() {
-    const input = $("#askInput");
-    const question = input.value.trim();
-    if (!question) { input.focus(); return; }
-    const btn = $("#askBtn"); btn.disabled = true; btn.textContent = "Thinking…";
-    $("#askResult").innerHTML = `<div class="meta"><span class="pill">🧭 supervisor routing to a specialist…</span></div>`;
-    const start = performance.now();
-    try {
-      const data = await postJson("agent/ask", { question });
-      const ms = Math.round(performance.now() - start);
-      const answer = (data.answer || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      $("#askResult").innerHTML = `
-        <div class="meta">
-          <span class="pill ok">✓ supervisor → sub-agent → fleet</span>
-          <span class="pill">⏱ ${ms} ms</span>
+      </header>
+      <div class="overview">
+        <section class="environment" aria-live="polite">
+          <strong id="environment">Checking environment…</strong>
+          <p id="environmentDescription"></p>
+          <p id="readiness"></p>
+          <small id="observation"></small>
+        </section>
+        <section
+          id="topology"
+          class="topology"
+          aria-label="Dynamic request topology"
+        >
+          <div class="topology-heading">
+            <h2>Live request path</h2>
+            <small id="flowCounts">Waiting for observation</small>
+          </div>
+          <svg id="flowCanvas" class="flow-canvas" aria-hidden="true"></svg>
+          <div class="topology-flow">
+            <div class="network-node" id="flowBrowser">
+              <div class="node-core browser">UI</div>
+              <strong>Browser</strong>
+            </div>
+            <div class="network-node" id="flowAgent">
+              <div class="node-core client">AI</div>
+              <strong>Agent</strong><small>MCP client</small>
+            </div>
+            <div class="network-node" id="flowRouter">
+              <div class="node-core router">↗</div>
+              <strong id="flowRoutingLabel">Routing</strong>
+            </div>
+            <div class="network-node" id="flowFleet">
+              <div id="flowReplicas" class="flow-replicas"></div>
+              <strong id="flowFleetLabel">MCP fleet</strong>
+            </div>
+            <div class="network-node" id="flowDb">
+              <div class="node-core database">DB</div>
+              <strong>Postgres</strong>
+            </div>
+          </div>
+          <p id="flowStatus" class="topology-status" role="status">
+            Waiting for a request
+          </p>
+          <p class="topology-legend">
+            Blue: sent request · Teal: recorded reply · Red: failure. Observed
+            process IDs and platform readiness are separate. Paths illustrate
+            calls, not packet capture or per-hop timing.
+          </p>
+        </section>
+      </div>
+      <nav aria-label="Console views">
+        <button data-tab="ask" aria-selected="true">1 · Ask</button
+        ><button data-tab="fleet" aria-selected="false">2 · Fleet</button
+        ><button data-tab="protocol" aria-selected="false">3 · Protocol</button>
+      </nav>
+      <section data-view="ask">
+        <h2>Ask a logistics question</h2>
+        <p>
+          Follow the executed specialist tools, then inspect their MCP evidence.
+        </p>
+        <div id="examples" class="controls"></div>
+        <form id="askForm">
+          <label for="question">Question</label
+          ><textarea
+            id="question"
+            maxlength="2000"
+            rows="2"
+            placeholder="Where is shipment HLX-10032291?"
+          ></textarea
+          ><button id="askButton" class="primary">Ask the agent</button>
+        </form>
+        <p id="askStatus" role="status"></p>
+        <article id="answer" hidden>
+          <h3>Answer</h3>
+          <div id="answerText"></div>
+        </article>
+        <section id="trace" hidden>
+          <h3>Executed specialist tool calls</h3>
+          <p>Execution facts only. No hidden model reasoning is displayed.</p>
+          <div id="traceSteps"></div>
+        </section>
+      </section>
+      <section data-view="fleet" hidden>
+        <h2>Same business call, interchangeable replicas</h2>
+        <p id="fleetExplanation"></p>
+        <button id="discover">Discover tools</button>
+        <p id="catalogStatus" role="status"></p>
+        <form id="toolForm">
+          <label for="tool">Business tool</label
+          ><select id="tool"></select>
+          <p id="description"></p>
+          <div id="arguments" class="arguments"></div>
+          <div class="controls">
+            <button id="run" class="primary" disabled>Run tool</button
+            ><button id="repeat" type="button" disabled>Repeat 5 calls</button
+            ><button id="invalid" type="button">
+              Try an invalid tracking ID
+            </button>
+          </div>
+        </form>
+        <p id="runStatus" role="status"></p>
+        <div class="metrics">
+          <article>
+            <small>Ready replicas</small
+            ><strong id="readyCount">Unknown</strong>
+          </article>
+          <article>
+            <small>Observed in this run</small
+            ><strong id="observedCount">0</strong>
+          </article>
+          <article>
+            <small>Business result consistency</small
+            ><strong id="consistency">Not measured</strong>
+          </article>
         </div>
-        <pre style="white-space:pre-wrap">${answer}</pre>`;
-    } catch (e) {
-      $("#askResult").innerHTML = `<div class="meta"><span class="pill err">✕ ${e.message || e}</span></div>
-        <div style="font-size:12px;color:var(--muted)">Is <code>OPENAI_API_KEY</code> set for the agent?</div>`;
-    } finally { btn.disabled = false; btn.textContent = "Ask the agent"; }
-  }
-
-  $("#askBtn").addEventListener("click", ask);
-  $("#askInput").addEventListener("keydown", (e) => { if (e.key === "Enter") ask(); });
-  document.querySelectorAll("#askExamples .tag").forEach((el) =>
-    el.addEventListener("click", () => { $("#askInput").value = el.textContent.trim(); ask(); }));
-
-  async function initialize() {
-    await loadRuntime();
-    await loadCatalog();
-    setInterval(loadRuntime, 3000);
-    // Active instance polling is useful for the fixed fleet demo, but it would
-    // itself be traffic that prevents a Knative revision from scaling to zero.
-    if (!scaleToZero) {
-      refreshInstance();
-      setInterval(refreshInstance, 3000);
-    }
-  }
-
-  initialize();
-</script>
-</body>
+        <p id="activation"></p>
+        <div id="calls" aria-live="polite"></div>
+        <details id="resultPanel" hidden>
+          <summary>Latest business result</summary>
+          <pre id="result"></pre>
+        </details>
+        <details>
+          <summary>Rehearse recovery</summary>
+          <p>
+            Repeat a read, replace a replica using your existing terminal, then
+            repeat the same read again. Failed calls remain visible. Replica
+            selection is load-balanced; five calls need not visit five different
+            replicas.
+          </p>
+        </details>
+      </section>
+      <section data-view="protocol" hidden>
+        <h2>Evidence from an actual invocation</h2>
+        <p>
+          The server reports allowlisted headers and the logical request at tool
+          execution. Business fields remain separate from diagnostics. No
+          credentials are included.
+        </p>
+        <p>
+          Expected protocol: <code>2026-07-28</code> · observed values appear
+          below only after a call.
+        </p>
+        <p id="protocolStatus" role="status">
+          Run a business tool to collect evidence.
+        </p>
+        <h3>Headers observed by the serving MCP replica</h3>
+        <pre id="headers">No evidence collected</pre>
+        <h3>Logical request observed at tool execution</h3>
+        <pre id="request">No evidence collected</pre>
+        <h3>Business result received by the agent</h3>
+        <pre id="response">No evidence collected</pre>
+      </section>
+      <footer>
+        Fictional logistics data · MCP protocol state is separate from business
+        state · Scale-to-zero requires a configured platform.
+      </footer>
+    </main>
+  </body>
 </html>

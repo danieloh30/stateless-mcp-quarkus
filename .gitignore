@@ -26,3 +26,6 @@ compatibility-report/
 # Generated GitHub Pages input/output
 .pages-src/
 site/
+
+# Optional SPA browser checks
+node_modules/
