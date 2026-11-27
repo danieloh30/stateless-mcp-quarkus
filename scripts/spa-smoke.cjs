@@ -138,6 +138,13 @@ const root = path.resolve(
         await page.locator("#topology .replica.observed").count(),
         mode === "knative" ? 0 : 1,
       );
+      if (mode === "knative") {
+        assert.equal(await page.locator(".replica.historical").count(), 1);
+        assert.match(
+          await page.locator(".replica.historical").textContent(),
+          /last recorded reply/,
+        );
+      }
       assert.match(
         await page.locator("#flowStatus").textContent(),
         /Reply from replica-/,

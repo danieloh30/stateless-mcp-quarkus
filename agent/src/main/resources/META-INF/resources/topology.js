@@ -33,6 +33,17 @@
     fleet.replaceChildren();
     if (ready === 0) {
       fleet.append(el("div", "0 ready", "replica idle"));
+      if (lastId) {
+        const previous = el(
+          "div",
+          lastId.replace(/^helios-/, ""),
+          "replica historical last-hit",
+        );
+        previous.dataset.instance = lastId;
+        previous.title = `Last recorded reply: ${lastId}. Historical evidence; platform reports zero ready endpoints.`;
+        previous.append(el("small", "last recorded reply"));
+        fleet.append(previous);
+      }
     } else {
       const slots = Number.isInteger(ready)
         ? Math.min(ready, 10)
